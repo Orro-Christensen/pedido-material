@@ -1,6 +1,6 @@
 /**
  * App de Requisição de Materiais — backend (Google Apps Script)
- * Cole este arquivo em: Planilha Google > Extensões > Apps Script.
+ * Projeto Apps Script independente (script.google.com) ligado à planilha pelo PLANILHA_ID.
  * 1) Rode a função "configurar" uma vez (cria as abas e o catálogo de exemplo).
  * 2) Implantar > Nova implantação > App da Web > Executar como: Eu / Quem pode acessar: Qualquer pessoa.
  */
@@ -13,12 +13,16 @@ const CAB = {
   PED:   ['Nº Pedido', 'ID Linha', 'Data', 'Funcionário', 'Urgente', 'Categoria', 'Código', 'Item',
           'Especificação', 'Qtd', 'Unidade', 'Obs', 'Status', 'Atualizado em']
 };
+// ID da Planilha Google (o trecho entre /d/ e /edit no endereço da planilha).
+const PLANILHA_ID = '12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E';
+function planilha_() { return SpreadsheetApp.openById(PLANILHA_ID); }
+
 const STATUS = ['Novo', 'Comprado', 'Entregue', 'Cancelado'];
 const PIN_PADRAO = '1234';
 
 // ---------- Instalação ----------
 function configurar() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = planilha_();
   ss.setSpreadsheetTimeZone('America/Sao_Paulo');
   criarAba_(ss, ABA.CAT, CAB.CAT, [
     ["Parafusos e fixação", "parafuso.svg", 1],
@@ -113,7 +117,7 @@ function criarAba_(ss, nome, cab, linhas) {
 
 // ---------- Leitura ----------
 function tabela_(nome) {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nome);
+  const sh = planilha_().getSheetByName(nome);
   const v = sh.getDataRange().getValues();
   const cab = v.shift();
   return v.filter(l => l.join('') !== '').map(l => {
@@ -204,7 +208,7 @@ function novoPedido_(b) {
             c ? c.espec : '', qtd, c ? c.unidade : String(it.unidade || 'un').slice(0, 20),
             String(it.obs || b.obs || '').slice(0, 300), 'Novo', agora];
   });
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.PED);
+  const sh = planilha_().getSheetByName(ABA.PED);
   sh.getRange(sh.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
   if (b.chave) CacheService.getScriptCache().put('k_' + b.chave, num, 21600);
   return { ok: true, pedido: num };
@@ -213,7 +217,7 @@ function novoPedido_(b) {
 function mudarStatus_(b) {
   if (!pinOk_(b.pin)) throw new Error('PIN inválido');
   if (!STATUS.includes(b.status)) throw new Error('Status inválido');
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ABA.PED);
+  const sh = planilha_().getSheetByName(ABA.PED);
   const v = sh.getDataRange().getValues();
   const iPed = CAB.PED.indexOf('Nº Pedido'), iLin = CAB.PED.indexOf('ID Linha'),
         iSt = CAB.PED.indexOf('Status'), iAt = CAB.PED.indexOf('Atualizado em');

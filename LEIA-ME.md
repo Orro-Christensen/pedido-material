@@ -9,6 +9,14 @@ Sem a URL configurada, o app abre em **modo demonstração**: dá para testar tu
 
 ---
 
+## Instalação atual (já feita)
+
+- Planilha: **Pedidos de Material** (Google Drive de marcos.markevich@gmail.com)
+- Apps Script: projeto independente ("Projeto sem título") em script.google.com, ligado à planilha pelo `PLANILHA_ID`
+- `config.js` já aponta para o App da Web publicado
+
+As seções 1 e 2 abaixo ficam como referência para reinstalar do zero.
+
 ## 1. Planilha + Apps Script (cerca de 10 min)
 
 1. Crie uma Planilha Google nova, por exemplo "Pedidos de Material".
