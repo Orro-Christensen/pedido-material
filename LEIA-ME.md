@@ -71,6 +71,8 @@ O app busca o catálogo atualizado toda vez que é aberto.
 2. Link de compartilhamento do **Google Drive**. O arquivo precisa estar compartilhado como "Qualquer pessoa com o link".
 3. Qualquer link de imagem que comece com `https://`.
 
+**Duas fotos (ou mais) no mesmo item:** escreva os nomes na mesma célula separados por ponto e vírgula, por exemplo `dobradica-reta.jpg; dobradica-reta-lado.jpg`. A primeira aparece no botão do item; na janela de quantidade aparecem todas lado a lado, e tocando nelas a foto amplia.
+
 Dica: fotografe o item real sobre um fundo liso. Para o marceneiro, isso funciona melhor que o desenho.
 
 ## Observações

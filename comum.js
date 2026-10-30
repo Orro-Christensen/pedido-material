@@ -69,6 +69,12 @@
     return 'img/' + f;
   }
 
+  // Várias fotos na mesma célula, separadas por ";" → lista de endereços.
+  function fotos(f) {
+    const l = String(f || '').split(/\s*;\s*/).filter(Boolean).map(foto);
+    return l.length ? l : [foto('')];
+  }
+
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
@@ -80,5 +86,5 @@
   function qtdBR(n) { return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 }); }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
 
-  window.App = { DEMO, ls, get, post, foto, esc, dataBR, qtdBR, uid };
+  window.App = { DEMO, ls, get, post, foto: f => fotos(f)[0], fotos, esc, dataBR, qtdBR, uid };
 })();

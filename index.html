@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Pedido de Material</title>
 <link rel="icon" href="img/parafuso.svg">
-<link rel="stylesheet" href="estilo.css">
+<link rel="stylesheet" href="estilo.css?v=2">
 </head>
 <body>
 <header class="topo">
@@ -21,11 +21,11 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="config.js"></script>
-<script src="demo.js"></script>
-<script src="comum.js"></script>
+<script src="config.js?v=2"></script>
+<script src="demo.js?v=2"></script>
+<script src="comum.js?v=2"></script>
 <script>
-const { ls, get, post, foto, esc, dataBR, qtdBR, uid } = App;
+const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
 const tela = $('#tela');
 
@@ -118,7 +118,7 @@ const normal = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 function cartaoItem(i) {
   const c = noCarrinho(i.id);
   return `<button class="cartao ${c ? 'no-pedido' : ''}" data-i="${esc(i.id)}">
-    <img src="${esc(foto(i.foto))}" alt="" loading="lazy">
+    <img src="${esc(foto(i.foto))}" alt="" loading="lazy">${fotos(i.foto).length > 1 ? '<span class="mais-fotos">📷 ' + fotos(i.foto).length + '</span>' : ''}
     <span class="nome">${esc(i.nome)}</span>${i.espec ? `<span class="espec">${esc(i.espec)}</span>` : ''}
     ${c ? `<span class="selo">✓ ${qtdBR(c.qtd)} ${esc(i.unidade)}</span>` : ''}</button>`;
 }
@@ -140,7 +140,7 @@ function abrirQtd(i, voltarCarrinho) {
   let q = atual ? atual.qtd : 1;
   const rap = ['un', 'unid', 'peça', 'pc'].includes(String(i.unidade).toLowerCase()) ? [10, 50, 100] : [1, 2, 5];
   $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal" role="dialog">
-    <div class="cab"><img src="${esc(foto(i.foto))}" alt=""><div><div class="nome">${esc(i.nome)}</div><div class="espec">${esc(i.espec)}</div></div></div>
+    ${galeria(i)}
     <div class="contador"><button id="menos" aria-label="Menos">−</button>
       <input id="q" type="number" inputmode="decimal" min="0" step="any" value="${q}">
       <button id="mais" aria-label="Mais">+</button></div>
@@ -150,6 +150,7 @@ function abrirQtd(i, voltarCarrinho) {
       <button class="btn btn-ok" id="confirmar">${atual ? '✓ Atualizar' : '✓ Colocar no pedido'}</button>
       ${atual ? '<button class="btn btn-claro" id="remover" style="color:var(--perigo)">Tirar do pedido</button>' : ''}
       <button class="btn btn-claro" id="cancelar">Cancelar</button></div></div></div>`;
+  ligarZoom(i);
   const inp = $('#q');
   const passo = q => q >= 100 ? 10 : 1;
   const pega = () => Math.max(0, Number(String(inp.value).replace(',', '.')) || 0);
@@ -165,6 +166,26 @@ function abrirQtd(i, voltarCarrinho) {
     salvarCarrinho(); fecharModal(); desenhar();
     if (v && !voltarCarrinho) aviso('✓ ' + i.nome + ' no pedido');
   };
+}
+function galeria(i) {
+  const fs = fotos(i.foto);
+  const titulo = `<div><div class="nome">${esc(i.nome)}</div><div class="espec">${esc(i.espec)}</div></div>`;
+  if (fs.length === 1)
+    return `<div class="cab"><img src="${esc(fs[0])}" alt="" data-zoom="0">${titulo}</div>`;
+  return `<div class="cab cab-col">${titulo}</div>
+    <div class="fotos">${fs.map((u, n) => `<img src="${esc(u)}" alt="" data-zoom="${n}">`).join('')}</div>`;
+}
+function ligarZoom(i) {
+  const fs = fotos(i.foto);
+  $('#modal').querySelectorAll('[data-zoom]').forEach(im => im.onclick = e => {
+    e.stopPropagation(); let n = +im.dataset.zoom;
+    const z = document.createElement('div'); z.className = 'zoom';
+    const mostra = () => z.innerHTML = `<img src="${esc(fs[n])}" alt="">` +
+      (fs.length > 1 ? `<div class="zoom-info">${n + 1} / ${fs.length} — toque para a próxima</div>` : '<div class="zoom-info">toque para fechar</div>');
+    mostra();
+    z.onclick = () => { if (fs.length > 1 && n < fs.length - 1) { n++; mostra(); } else z.remove(); };
+    document.body.appendChild(z);
+  });
 }
 function tirar(id) { carrinho.itens = carrinho.itens.filter(x => x.id !== id); salvarCarrinho(); }
 
