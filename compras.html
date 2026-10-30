@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2f3b4c">
+<title>Compras — Pedidos de Material</title>
+<link rel="icon" href="img/galao.svg">
+<link rel="stylesheet" href="estilo.css">
+<style>
+  body { font-size: 16px; }
+  .abas { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .abas button { background: #fff; border: 2px solid var(--linha); border-radius: 999px; padding: 8px 16px; font-weight: 700; }
+  .abas button.on { background: var(--topo); color: #fff; border-color: var(--topo); }
+  .grupo li label { display: flex; gap: 10px; align-items: center; flex: 1; cursor: pointer; }
+  .grupo li input { width: 22px; height: 22px; flex: none; }
+  .acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .acoes button { border-radius: 10px; padding: 9px 14px; font-weight: 700; color: #fff; }
+  .a-Comprado { background: var(--comprado); } .a-Entregue { background: var(--entregue); }
+  .a-Cancelado { background: var(--cancelado); } .a-Novo { background: #b08900; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--raio); overflow: hidden; box-shadow: var(--sombra); }
+  th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+  th { background: #f6f5f1; font-size: 14px; } td.n { text-align: right; font-weight: 800; white-space: nowrap; }
+  .entrar { max-width: 360px; margin: 60px auto; }
+  .resumo-topo { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .meta { color: var(--suave); font-size: 14px; }
+</style>
+</head>
+<body>
+<header class="topo"><h1>Compras — Pedidos de material</h1>
+  <a class="pessoa" id="linkPlanilha" target="_blank" rel="noopener" hidden style="text-decoration:none">📊 Planilha</a>
+  <button class="pessoa" id="btnAtualizar" hidden>↻ Atualizar</button></header>
+<div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — PIN 1234</div>
+<main id="tela"></main>
+
+<script src="config.js"></script>
+<script src="demo.js"></script>
+<script src="comum.js"></script>
+<script>
+const { ls, get, post, esc, dataBR, qtdBR } = App;
+const $ = s => document.querySelector(s);
+const tela = $('#tela');
+if (App.DEMO) $('#faixaDemo').hidden = false;
+if (window.PLANILHA_URL) { $('#linkPlanilha').href = window.PLANILHA_URL; $('#linkPlanilha').hidden = false; }
+
+let pin = ls.get('pin_compras', '');
+let linhas = [], aba = 'Novo', marcados = new Set(), carregando = false;
+$('#btnAtualizar').onclick = () => carregar();
+
+function aviso(msg, erro) {
+  const d = document.createElement('div'); d.className = 'aviso' + (erro ? ' erro' : ''); d.textContent = msg;
+  document.body.appendChild(d); setTimeout(() => d.remove(), erro ? 4500 : 2000);
+}
+
+function telaEntrar(msg) {
+  $('#btnAtualizar').hidden = true;
+  tela.innerHTML = `<form class="entrar grupo" id="f"><div class="titulo">Acesso de compras</div>
+    <label class="rot" for="p">PIN</label><input class="campo" id="p" type="password" inputmode="numeric" autocomplete="current-password">
+    ${msg ? `<p style="color:var(--perigo)">${esc(msg)}</p>` : ''}
+    <button class="btn btn-ok" style="margin-top:14px">Entrar</button></form>`;
+  $('#f').onsubmit = e => { e.preventDefault(); pin = $('#p').value; carregar(true); };
+  $('#p').focus();
+}
+
+async function carregar(primeira) {
+  if (carregando) return; carregando = true;
+  if (primeira) tela.innerHTML = '<div class="carregando">Carregando…</div>';
+  try {
+    linhas = (await get({ action: 'pedidos', pin, dias: 30 })).linhas;
+    ls.set('pin_compras', pin); $('#btnAtualizar').hidden = false; desenhar();
+  } catch (e) {
+    if (/PIN/.test(e.message)) { ls.del('pin_compras'); telaEntrar(e.message); }
+    else if (primeira) tela.innerHTML = `<div class="vazio">Erro: ${esc(e.message)}</div>`;
+    else aviso('Erro ao atualizar: ' + e.message, true);
+  } finally { carregando = false; }
+}
+
+function desenhar() {
+  const cont = s => new Set(linhas.filter(l => l.status === s).map(l => l.pedido)).size;
+  const abas = [['Novo', `Novos (${cont('Novo')})`], ['Comprado', `Comprados (${cont('Comprado')})`],
+                ['Entregue', 'Entregues'], ['Cancelado', 'Cancelados'], ['Resumo', '🧾 Lista de compra']];
+  tela.innerHTML = `<div class="abas">${abas.map(([k, t]) => `<button data-a="${k}" class="${aba === k ? 'on' : ''}">${t}</button>`).join('')}</div><div id="corpo"></div>`;
+  tela.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { aba = b.dataset.a; marcados.clear(); desenhar(); });
+  aba === 'Resumo' ? desenharResumo() : desenharPedidos();
+}
+
+function desenharPedidos() {
+  const sel = linhas.filter(l => l.status === aba);
+  const grupos = {}; sel.forEach(l => (grupos[l.pedido] ||= []).push(l));
+  const nums = Object.keys(grupos).sort((a, b) => {
+    const ua = grupos[a][0].urgente, ub = grupos[b][0].urgente;
+    return ua !== ub ? (ua ? -1 : 1) : (aba === 'Novo' ? a.localeCompare(b) : b.localeCompare(a));
+  });
+  const proximos = { Novo: ['Comprado', 'Entregue', 'Cancelado'], Comprado: ['Entregue', 'Novo', 'Cancelado'],
+                     Entregue: ['Comprado'], Cancelado: ['Novo'] }[aba];
+  $('#corpo').innerHTML = nums.length ? nums.map(n => { const g = grupos[n];
+    return `<div class="grupo"><div class="cab-grupo"><b>Nº ${esc(n)} — ${esc(g[0].funcionario)}</b>
+      <span class="meta">${dataBR(g[0].data)} ${g[0].urgente ? '<span class="urg">URGENTE</span>' : ''}</span></div>
+      <ul>${g.map(l => `<li><label><input type="checkbox" data-l="${esc(l.linha)}" ${marcados.has(l.linha) ? 'checked' : ''}>
+        <span><b>${qtdBR(l.qtd)} ${esc(l.unidade)}</b> — ${esc(l.item)} <span class="meta">${esc(l.espec)}</span>
+        ${l.obs ? `<br><span class="meta">Obs.: ${esc(l.obs)}</span>` : ''}</span></label>
+        <span class="meta">${esc(l.codigo)}</span></li>`).join('')}</ul>
+      <div class="acoes">${proximos.map(s => `<button class="a-${s}" data-p="${esc(n)}" data-s="${s}">${rotulo(s)}</button>`).join('')}</div></div>`;
+  }).join('') : `<div class="vazio">Nenhum pedido ${aba === 'Novo' ? 'novo' : 'nesta situação'}.</div>`;
+  $('#corpo').querySelectorAll('[data-l]').forEach(c => c.onchange = () => { c.checked ? marcados.add(c.dataset.l) : marcados.delete(c.dataset.l); desenhar(); });
+  $('#corpo').querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
+    const doPedido = grupos[b.dataset.p].map(l => l.linha).filter(x => marcados.has(x));
+    mudar(b.dataset.s, doPedido.length ? { linhas: doPedido } : { pedido: b.dataset.p }, b);
+  });
+}
+function rotulo(s) {
+  const qtd = marcados.size ? ' (marcados)' : ' (pedido todo)';
+  return ({ Comprado: '✓ Comprado', Entregue: '📦 Entregue', Cancelado: '✕ Cancelar', Novo: '↩ Voltar p/ novo' })[s] + qtd;
+}
+
+async function mudar(status, alvo, botao) {
+  botao.disabled = true;
+  try {
+    await post({ action: 'status', pin, status, ...alvo });
+    linhas.forEach(l => { if ((alvo.linhas || []).includes(l.linha) || l.pedido === alvo.pedido) l.status = status; });
+    marcados.clear(); desenhar(); aviso('Marcado como ' + status);
+  } catch (e) { botao.disabled = false; aviso('Erro: ' + e.message, true); }
+}
+
+function desenharResumo() {
+  const abertos = linhas.filter(l => l.status === 'Novo');
+  const soma = {};
+  abertos.forEach(l => {
+    const k = l.codigo === 'OUTRO' ? 'OUTRO|' + l.item.toLowerCase() + '|' + l.unidade : l.codigo;
+    const s = soma[k] ||= { codigo: l.codigo, item: l.item, espec: l.espec, unidade: l.unidade, categoria: l.categoria, qtd: 0, pedidos: new Set(), urg: false, obs: [] };
+    s.qtd += Number(l.qtd) || 0; s.pedidos.add(l.pedido); s.urg ||= l.urgente; if (l.obs) s.obs.push(l.obs);
+  });
+  const lista = Object.values(soma).sort((a, b) => a.categoria.localeCompare(b.categoria) || a.item.localeCompare(b.item));
+  if (!lista.length) { $('#corpo').innerHTML = '<div class="vazio">Nada pendente para comprar.</div>'; return; }
+  const texto = 'Lista de compra — ' + new Date().toLocaleDateString('pt-BR') + '\n' +
+    lista.map(s => `• ${qtdBR(s.qtd)} ${s.unidade} — ${s.item}${s.espec ? ' ' + s.espec : ''}`).join('\n');
+  $('#corpo').innerHTML = `<div class="resumo-topo"><span class="meta">Soma de todos os itens em pedidos <b>Novos</b>.</span>
+    <button class="btn btn-claro" id="copiar" style="width:auto;min-height:44px;font-size:16px">📋 Copiar lista (WhatsApp)</button></div>
+    <table><thead><tr><th>Item</th><th>Qtd total</th><th>Pedidos</th></tr></thead><tbody>${
+    lista.map(s => `<tr><td><b>${esc(s.item)}</b> <span class="meta">${esc(s.espec)}</span> ${s.urg ? '<span class="urg">URG</span>' : ''}
+      <br><span class="meta">${esc(s.codigo)} · ${esc(s.categoria)}${s.obs.length ? ' · Obs.: ' + esc(s.obs.join(' / ')) : ''}</span></td>
+      <td class="n">${qtdBR(s.qtd)} ${esc(s.unidade)}</td><td class="meta">${[...s.pedidos].join(', ')}</td></tr>`).join('')}</tbody></table>`;
+  $('#copiar').onclick = async () => {
+    try { await navigator.clipboard.writeText(texto); aviso('Lista copiada'); }
+    catch (e) { aviso('Não consegui copiar automaticamente', true); }
+  };
+}
+
+if (pin) carregar(true); else telaEntrar();
+setInterval(() => { if (pin && !document.hidden && !marcados.size) carregar(); }, 60000);
+</script>
+</body>
+</html>
