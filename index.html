@@ -7,10 +7,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Pedido de Material</title>
-<link rel="icon" href="img/parafuso.svg">
-<link rel="stylesheet" href="estilo.css?v=2">
+<link rel="icon" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icone-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="estilo.css?v=3">
 </head>
 <body>
+<div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
 <header class="topo">
   <button class="voltar" id="btnVoltar" hidden aria-label="Voltar">‹</button>
   <h1 id="titulo">Pedido de Material</h1>
@@ -21,9 +24,9 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="config.js?v=2"></script>
-<script src="demo.js?v=2"></script>
-<script src="comum.js?v=2"></script>
+<script src="config.js?v=3"></script>
+<script src="demo.js?v=3"></script>
+<script src="comum.js?v=3"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
@@ -138,7 +141,8 @@ function abrirQtd(i, voltarCarrinho) {
   if (!i) return;
   const atual = noCarrinho(i.id);
   let q = atual ? atual.qtd : 1;
-  const rap = ['un', 'unid', 'peça', 'pc'].includes(String(i.unidade).toLowerCase()) ? [10, 50, 100] : [1, 2, 5];
+  // Atalhos de quantidade: miúdos (parafusos, buchas, cavilhas…) em dezenas/centenas; o resto em poucas unidades
+  const rap = /parafus|fixa/i.test(i.categoria) && String(i.unidade).toLowerCase() === 'un' ? [10, 50, 100] : [1, 2, 5];
   $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal" role="dialog">
     ${galeria(i)}
     <div class="contador"><button id="menos" aria-label="Menos">−</button>

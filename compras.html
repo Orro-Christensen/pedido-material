@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#2f3b4c">
 <title>Compras — Pedidos de Material</title>
-<link rel="icon" href="img/galao.svg">
-<link rel="stylesheet" href="estilo.css?v=2">
+<link rel="icon" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icone-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="estilo.css?v=3">
 <style>
   body { font-size: 16px; }
   .abas { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -27,15 +29,16 @@
 </style>
 </head>
 <body>
+<div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
 <header class="topo"><h1>Compras — Pedidos de material</h1>
   <a class="pessoa" id="linkPlanilha" target="_blank" rel="noopener" hidden style="text-decoration:none">📊 Planilha</a>
   <button class="pessoa" id="btnAtualizar" hidden>↻ Atualizar</button></header>
 <div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — PIN 1234</div>
 <main id="tela"></main>
 
-<script src="config.js?v=2"></script>
-<script src="demo.js?v=2"></script>
-<script src="comum.js?v=2"></script>
+<script src="config.js?v=3"></script>
+<script src="demo.js?v=3"></script>
+<script src="comum.js?v=3"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);

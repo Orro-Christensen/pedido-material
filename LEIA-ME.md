@@ -58,6 +58,9 @@ As seções 1 e 2 abaixo ficam como referência para reinstalar do zero.
 
 ## 4. Manutenção do catálogo (direto na planilha)
 
+O catálogo foi carregado a partir de **Lista de insumos.xlsx** (145 itens). Para recarregar tudo de uma vez a partir do código, use a função `substituirCatalogo` no Apps Script. Ela sobrescreve as abas Categorias e Itens, mas não mexe em Funcionarios nem em Pedidos. No dia a dia, edite direto na planilha.
+
+
 | Aba | O que fazer |
 |---|---|
 | **Funcionarios** | Coloque os nomes, apague os dois "Exemplo". Para esconder alguém, Ativo = NÃO. |

@@ -1,3 +1,5 @@
+.marca { background: #fff; text-align: center; padding: 10px 14px 8px; border-bottom: 1px solid var(--linha); }
+.marca img { height: 44px; max-width: 92%; object-fit: contain; display: inline-block; }
 :root {
   --fundo: #f3f1ec; --cartao: #ffffff; --texto: #1f2328; --suave: #5f6670; --linha: #dedbd3;
   --topo: #2f3b4c; --acento: #e07a1f; --ok: #1f8a4c; --ok-esc: #176b3a; --perigo: #c0392b;
@@ -22,7 +24,7 @@ main { padding: 14px; padding-bottom: 120px; max-width: 900px; margin: 0 auto; }
 .cartao { background: var(--cartao); border-radius: var(--raio); box-shadow: var(--sombra); border: 2px solid transparent;
   text-align: center; padding: 12px 10px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; color: inherit; }
 .cartao:active { transform: scale(.97); }
-.cartao img { width: 100%; max-width: 130px; aspect-ratio: 1; object-fit: contain; border-radius: 14px; background: #f7f7f7; }
+.cartao img { width: 100%; max-width: 130px; aspect-ratio: 1; object-fit: contain; border-radius: 14px; background: #fff; }
 .cartao .nome { font-weight: 700; font-size: 18px; }
 .cartao .espec { color: var(--suave); font-size: 16px; }
 .cartao.no-pedido { border-color: var(--ok); }
@@ -87,7 +89,7 @@ label.rot { font-weight: 700; display: block; margin: 12px 2px 6px; }
 .modal .cab img, .fotos img { cursor: zoom-in; }
 .modal .cab-col { margin-bottom: 10px; }
 .fotos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-.fotos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: #f7f7f7; }
+.fotos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: #fff; }
 .zoom { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
 .zoom img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 10px; background: #fff; }
 .zoom-info { color: #fff; margin-top: 14px; font-size: 17px; }
