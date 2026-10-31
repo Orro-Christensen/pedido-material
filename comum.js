@@ -21,20 +21,26 @@
     if (DEMO) return demoPost(body);
     // Sem cabeçalho Content-Type: o navegador envia text/plain e o Apps Script aceita sem bloqueio de CORS.
     const r = await comTempo(fetch(window.API_URL, { method: 'POST', body: JSON.stringify(body) }), 30000);
-    const j = await r.json(); if (j.erro) throw new Error(j.erro); return j;
+    const j = await r.json();
+    if (j.erro) { const e = new Error(j.erro); e.senha = !!j.senha; throw e; }
+    return j;
   }
 
   // ---------- modo demonstração (localStorage) ----------
   function demoGet(p) {
     const linhas = ls.get('demo_pedidos', []);
     if (p.action === 'catalogo') return Promise.resolve(window.DEMO);
-    if (p.action === 'meus') return Promise.resolve({ linhas: linhas.filter(l => l.funcionario === p.funcionario) });
     if (p.action === 'pedidos') return Promise.resolve(p.pin === '1234' ? { linhas } : { erro: 'PIN inválido' })
       .then(j => { if (j.erro) throw new Error(j.erro); return j; });
     return Promise.resolve({ ok: true });
   }
   function demoPost(b) {
     const linhas = ls.get('demo_pedidos', []);
+    if (['login', 'meus', 'novoPedido'].includes(b.action) && b.senha !== '1234') {
+      const e = new Error('Senha incorreta'); e.senha = true; return Promise.reject(e);
+    }
+    if (b.action === 'login') return new Promise(r => setTimeout(() => r({ ok: true }), 300));
+    if (b.action === 'meus') return Promise.resolve({ linhas: linhas.filter(l => l.funcionario === b.funcionario) });
     if (b.action === 'novoPedido') {
       const seq = ls.get('demo_seq', 0) + 1; ls.set('demo_seq', seq);
       const num = String(seq).padStart(4, '0'); const mapa = {};

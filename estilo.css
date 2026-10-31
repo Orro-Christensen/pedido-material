@@ -93,3 +93,16 @@ label.rot { font-weight: 700; display: block; margin: 12px 2px 6px; }
 .zoom { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
 .zoom img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 10px; background: #fff; }
 .zoom-info { color: #fff; margin-top: 14px; font-size: 17px; }
+.senha-tela { max-width: 360px; margin: 10px auto 0; text-align: center; }
+.senha-nome { font-size: 26px; font-weight: 800; }
+.senha-dica { color: var(--suave); margin: 4px 0 18px; }
+.senha-pontos { display: flex; gap: 18px; justify-content: center; margin-bottom: 8px; }
+.senha-pontos span { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--topo); }
+.senha-pontos span.on { background: var(--topo); }
+.senha-pontos.treme { animation: treme .35s; }
+@keyframes treme { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+.senha-msg { min-height: 26px; color: var(--perigo); font-weight: 700; margin-bottom: 8px; }
+.teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.teclado button { height: 74px; border-radius: 18px; background: #fff; box-shadow: var(--sombra); font-size: 32px; font-weight: 800; color: var(--texto); }
+.teclado button:active { background: #e9ecef; }
+.teclado .tec-apagar { font-size: 28px; color: var(--suave); }

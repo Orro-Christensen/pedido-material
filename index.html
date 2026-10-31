@@ -10,7 +10,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=3">
+<link rel="stylesheet" href="estilo.css?v=4">
 </head>
 <body>
 <div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
@@ -24,16 +24,22 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="config.js?v=3"></script>
-<script src="demo.js?v=3"></script>
-<script src="comum.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="demo.js?v=4"></script>
+<script src="comum.js?v=4"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
 const tela = $('#tela');
 
 let cat = ls.get('catalogo', null);          // {categorias, itens, funcionarios}
-let pessoa = ls.get('pessoa', '');
+// Sessão: nome + senha guardados no aparelho por 12 horas (um turno). Depois pede a senha de novo.
+const DURACAO_SESSAO = 12 * 3600e3;
+let sessao = ls.get('sessao', null);
+if (!sessao || !(sessao.ate > Date.now())) { sessao = null; ls.del('sessao'); }
+ls.del('pessoa');
+let pessoa = sessao ? sessao.pessoa : '';
+function sair(msg) { sessao = null; pessoa = ''; ls.del('sessao'); if (msg) aviso(msg, true); }
 let carrinho = ls.get('carrinho', { itens: [], urgente: false, obs: '', chave: uid() });
 let estado = { v: 'inicio' };                 // tela atual
 let busca = '';
@@ -50,7 +56,7 @@ function ir(novo, substituir) {
 }
 window.addEventListener('popstate', e => { fecharModal(); estado = e.state || { v: 'inicio' }; desenhar(); });
 $('#btnVoltar').onclick = () => history.back();
-$('#btnPessoa').onclick = () => ir({ v: 'quem' });
+$('#btnPessoa').onclick = () => { sair(); ir({ v: 'quem' }, true); };
 $('#btnCarrinho').onclick = () => ir({ v: 'carrinho' });
 
 function salvarCarrinho() { ls.set('carrinho', carrinho); }
@@ -64,15 +70,15 @@ function aviso(msg, erro) {
 
 // ---------- desenho das telas ----------
 function desenhar() {
-  const v = pessoa ? estado.v : 'quem';
-  $('#btnVoltar').hidden = ['inicio', 'quem', 'enviado'].includes(v) || !pessoa;
+  const v = pessoa ? estado.v : (estado.v === 'senha' ? 'senha' : 'quem');
+  $('#btnVoltar').hidden = ['inicio', 'quem', 'enviado'].includes(v) || (!pessoa && v !== 'senha');
   $('#btnPessoa').hidden = !pessoa || v === 'quem';
-  $('#btnPessoa').textContent = '👤 ' + pessoa;
+  $('#btnPessoa').textContent = '👤 ' + pessoa + ' · Sair';
   const n = carrinho.itens.length;
-  $('#barra').hidden = !n || ['carrinho', 'enviado', 'quem'].includes(v);
+  $('#barra').hidden = !n || ['carrinho', 'enviado', 'quem', 'senha'].includes(v);
   $('#btnCarrinho').textContent = `🛒 Ver meu pedido (${n} ${n === 1 ? 'item' : 'itens'})`;
   if (!cat) { tela.innerHTML = '<div class="carregando">Carregando catálogo…</div>'; return; }
-  ({ quem: telaQuem, inicio: telaInicio, categoria: telaCategoria, carrinho: telaCarrinho,
+  ({ quem: telaQuem, senha: telaSenha, inicio: telaInicio, categoria: telaCategoria, carrinho: telaCarrinho,
      enviado: telaEnviado, meus: telaMeus })[v]();
 }
 
@@ -81,8 +87,37 @@ function telaQuem() {
   if (!cat.funcionarios.length) { tela.innerHTML = '<div class="vazio">Nenhum funcionário cadastrado na planilha (aba Funcionarios).</div>'; return; }
   tela.innerHTML = `<div class="titulo">Toque no seu nome</div><div class="pessoas">${
     cat.funcionarios.map(n => `<button data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
-  tela.querySelectorAll('[data-n]').forEach(b => b.onclick = () => {
-    pessoa = b.dataset.n; ls.set('pessoa', pessoa); ir({ v: 'inicio' }, true);
+  tela.querySelectorAll('[data-n]').forEach(b => b.onclick = () => ir({ v: 'senha', n: b.dataset.n }));
+}
+
+function telaSenha() {
+  $('#titulo').textContent = 'Senha';
+  let dig = '', ocupado = false;
+  tela.innerHTML = `<div class="senha-tela">
+    <div class="senha-nome">${esc(estado.n)}</div>
+    <div class="senha-dica">Digite sua senha de 4 números</div>
+    <div class="senha-pontos" id="pontos">${'<span></span>'.repeat(4)}</div>
+    <div class="senha-msg" id="smsg"></div>
+    <div class="teclado">${[1,2,3,4,5,6,7,8,9].map(d => `<button data-d="${d}">${d}</button>`).join('')}
+      <button data-d="x" class="tec-apagar" aria-label="Apagar">⌫</button><button data-d="0">0</button><span></span></div></div>`;
+  const pts = () => $('#pontos').querySelectorAll('span').forEach((s, i) => s.classList.toggle('on', i < dig.length));
+  tela.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+    if (ocupado) return;
+    $('#smsg').textContent = '';
+    if (b.dataset.d === 'x') { dig = dig.slice(0, -1); pts(); return; }
+    if (dig.length >= 4) return;
+    dig += b.dataset.d; pts();
+    if (dig.length < 4) return;
+    ocupado = true; $('#smsg').textContent = 'Conferindo…';
+    try {
+      await post({ action: 'login', funcionario: estado.n, senha: dig });
+      sessao = { pessoa: estado.n, senha: dig, ate: Date.now() + DURACAO_SESSAO }; ls.set('sessao', sessao);
+      pessoa = estado.n; ir({ v: 'inicio' }, true);
+    } catch (e) {
+      ocupado = false; dig = ''; pts();
+      $('#smsg').textContent = e.message; $('#pontos').classList.add('treme');
+      setTimeout(() => $('#pontos') && $('#pontos').classList.remove('treme'), 400);
+    }
   });
 }
 
@@ -248,13 +283,14 @@ function confirmarTirar(x) { return window.confirm ? window.confirm('Tirar "' + 
 async function enviar() {
   const b = $('#enviar'); b.disabled = true; b.textContent = 'Enviando…';
   try {
-    const r = await post({ action: 'novoPedido', funcionario: pessoa, urgente: carrinho.urgente, obs: carrinho.obs,
+    const r = await post({ action: 'novoPedido', funcionario: pessoa, senha: sessao.senha, urgente: carrinho.urgente, obs: carrinho.obs,
       chave: carrinho.chave,
       itens: carrinho.itens.map(x => x.id.startsWith('OUTRO-') ? { id: 'OUTRO', nome: x.nome, qtd: x.qtd, unidade: x.unidade } : { id: x.id, qtd: x.qtd }) });
     carrinho = { itens: [], urgente: false, obs: '', chave: uid() }; salvarCarrinho();
     ir({ v: 'enviado', num: r.pedido }, true);
   } catch (e) {
     b.disabled = false; b.textContent = '📨 Enviar pedido';
+    if (e.senha) { const n = pessoa; sair(e.message + ' — entre de novo. Seu pedido continua salvo.'); ir({ v: 'senha', n }, true); return; }
     aviso('Não foi possível enviar: ' + e.message + '. Seu pedido continua salvo — tente de novo.', true);
   }
 }
@@ -274,7 +310,7 @@ async function telaMeus() {
   $('#titulo').textContent = 'Meus pedidos';
   tela.innerHTML = '<div class="carregando">Buscando seus pedidos…</div>';
   try {
-    const { linhas } = await get({ action: 'meus', funcionario: pessoa });
+    const { linhas } = await post({ action: 'meus', funcionario: pessoa, senha: sessao.senha });
     if (estado.v !== 'meus') return;
     const grupos = {}; linhas.forEach(l => (grupos[l.pedido] ||= []).push(l));
     const nums = Object.keys(grupos).sort().reverse();
@@ -285,7 +321,10 @@ async function telaMeus() {
         <ul>${g.map(l => `<li><span>${qtdBR(l.qtd)} ${esc(l.unidade)} — <b>${esc(l.item)}</b> ${esc(l.espec)}</span>
           <span class="status st-${esc(l.status)}">${esc(l.status)}</span></li>`).join('')}</ul></div>`;
     }).join('') : '<div class="vazio">Você ainda não fez pedidos.</div>';
-  } catch (e) { tela.innerHTML = `<div class="vazio">Não foi possível buscar: ${esc(e.message)}</div>`; }
+  } catch (e) {
+    if (e.senha) { const n = pessoa; sair(e.message); ir({ v: 'senha', n }, true); return; }
+    tela.innerHTML = `<div class="vazio">Não foi possível buscar: ${esc(e.message)}</div>`;
+  }
 }
 
 // ---------- início ----------
@@ -293,7 +332,7 @@ history.replaceState(estado, '');
 desenhar();
 get({ action: 'catalogo' }).then(c => {
   cat = c; ls.set('catalogo', c);
-  if (pessoa && !c.funcionarios.includes(pessoa)) { pessoa = ''; ls.del('pessoa'); }
+  if (pessoa && !c.funcionarios.includes(pessoa)) sair();
   carrinho.itens = carrinho.itens.filter(x => x.id.startsWith('OUTRO-') || itemPorId(x.id)); salvarCarrinho();
   if (!$('#modal').innerHTML) desenhar();
 }).catch(e => { if (!cat) tela.innerHTML = `<div class="vazio">Sem conexão com o servidor.<br>${esc(e.message)}</div>`; else aviso('Sem conexão — usando catálogo salvo', true); });

@@ -49,7 +49,7 @@ As seções 1 e 2 abaixo ficam como referência para reinstalar do zero.
 
 ## 3. Uso no dia a dia
 
-**Funcionário:** toca no próprio nome (só na primeira vez), escolhe a categoria, toca no item, ajusta a quantidade e envia. Também pode marcar o pedido como urgente, pedir um item que não está na lista e acompanhar o status em "Meus pedidos".
+**Funcionário:** toca no próprio nome e digita a senha de 4 números. Fica conectado por 12 horas (um turno); depois o app pede a senha de novo. Erro de senha 5 vezes bloqueia aquele nome por 15 minutos. Depois disso, escolhe a categoria, toca no item, ajusta a quantidade e envia. Também pode marcar o pedido como urgente, pedir um item que não está na lista e acompanhar o status em "Meus pedidos".
 
 **Compras:** abre `compras.html` e entra com o PIN.
 - **Novos:** pedidos a atender, com os urgentes no topo. Marque o pedido inteiro, ou só as linhas selecionadas, como Comprado, Entregue ou Cancelado.
@@ -63,7 +63,7 @@ O catálogo foi carregado a partir de **Lista de insumos.xlsx** (145 itens). Par
 
 | Aba | O que fazer |
 |---|---|
-| **Funcionarios** | Coloque os nomes, apague os dois "Exemplo". Para esconder alguém, Ativo = NÃO. |
+| **Funcionarios** | Nome, Ativo e **Senha** (4 números). Para esconder alguém, use Ativo = NÃO. Ao incluir alguém, deixe a Senha vazia e rode `prepararSenhas` no Apps Script, ou digite você mesmo os 4 números. |
 | **Itens** | Uma linha por item. O Código precisa ser único (ex.: FIX-009). Para tirar um item do app, use Ativo = NÃO em vez de apagar a linha. |
 | **Categorias** | Nome, foto e ordem em que aparecem na tela inicial. |
 
