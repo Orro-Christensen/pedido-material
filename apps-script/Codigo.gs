@@ -9,7 +9,7 @@ const ABA = { CAT: 'Categorias', ITENS: 'Itens', FUNC: 'Funcionarios', PED: 'Ped
 const CAB = {
   CAT:   ['Categoria', 'Foto', 'Ordem'],
   ITENS: ['Código', 'Ativo', 'Categoria', 'Item', 'Especificação', 'Unidade', 'Foto'],
-  FUNC:  ['Nome', 'Ativo'],
+  FUNC:  ['Nome', 'Ativo', 'Senha'],
   PED:   ['Nº Pedido', 'ID Linha', 'Data', 'Funcionário', 'Urgente', 'Categoria', 'Código', 'Item',
           'Especificação', 'Qtd', 'Unidade', 'Obs', 'Status', 'Atualizado em']
 };
@@ -203,7 +203,7 @@ function configurar() {
   ss.setSpreadsheetTimeZone('America/Sao_Paulo');
   criarAba_(ss, ABA.CAT, CAB.CAT, SEED_CATEGORIAS);
   criarAba_(ss, ABA.ITENS, CAB.ITENS, SEED_ITENS);
-  criarAba_(ss, ABA.FUNC, CAB.FUNC, ["Exemplo 1 (apagar)", "Exemplo 2 (apagar)"].map(n => [n, 'SIM']));
+  criarAba_(ss, ABA.FUNC, CAB.FUNC, ["Exemplo 1 (apagar)", "Exemplo 2 (apagar)"].map(n => [n, 'SIM', '']));
   const ped = criarAba_(ss, ABA.PED, CAB.PED, []);
 
   // Listas suspensas e cores
@@ -284,11 +284,6 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
     if (p.action === 'catalogo') return json_(catalogo_());
-    if (p.action === 'meus') {
-      const limite = Date.now() - 30 * 864e5;
-      return json_({ linhas: linhasPedidos_(l => String(l['Funcionário']) === p.funcionario &&
-                                                  new Date(l['Data']).getTime() >= limite) });
-    }
     if (p.action === 'pedidos') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
       const dias = Number(p.dias) || 15, limite = Date.now() - dias * 864e5;
@@ -305,17 +300,70 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    if (body.action === 'login') { senhaOk_(body.funcionario, body.senha); return json_({ ok: true }); }
+    if (body.action === 'meus') return json_(meusPedidos_(body));
     if (body.action === 'novoPedido') return json_(novoPedido_(body));
     if (body.action === 'status') return json_(mudarStatus_(body));
     return json_({ erro: 'Ação desconhecida' });
   } catch (err) {
-    return json_({ erro: String(err) });
+    const m = String(err.message || err);
+    if (m.indexOf('SENHA|') === 0) return json_({ erro: m.slice(6), senha: true });
+    return json_({ erro: m });
   } finally { lock.releaseLock(); }
 }
 
+// ---------- Senha de 4 números por funcionário (coluna "Senha" da aba Funcionarios) ----------
+const erroSenha_ = msg => new Error('SENHA|' + msg);
+function senhaOk_(nome, senha) {
+  nome = String(nome || '');
+  const f = tabela_(ABA.FUNC).find(x => String(x['Nome']) === nome && ativo_(x['Ativo']));
+  if (!f) throw erroSenha_('Funcionário não cadastrado');
+  const cache = CacheService.getScriptCache(), k = 'tent_' + nome;
+  const tent = Number(cache.get(k) || 0);
+  if (tent >= 5) throw erroSenha_('Muitas tentativas erradas. Aguarde 15 minutos ou fale com o responsável.');
+  let certa = String(f['Senha'] ?? '').trim();
+  if (/^\d{1,4}$/.test(certa)) certa = certa.padStart(4, '0');
+  if (!certa) throw erroSenha_('Você ainda não tem senha. Fale com o responsável.');
+  if (String(senha || '').trim() !== certa) {
+    cache.put(k, String(tent + 1), 900);
+    throw erroSenha_(tent + 1 >= 5 ? 'Senha incorreta. Acesso bloqueado por 15 minutos.' : 'Senha incorreta');
+  }
+  cache.remove(k);
+  return true;
+}
+
+function meusPedidos_(b) {
+  senhaOk_(b.funcionario, b.senha);
+  const limite = Date.now() - 30 * 864e5;
+  return { linhas: linhasPedidos_(l => String(l['Funcionário']) === b.funcionario &&
+                                       new Date(l['Data']).getTime() >= limite) };
+}
+
+/** Cria a coluna "Senha" na aba Funcionarios e gera senhas de 4 números para quem ainda não tem.
+ *  Pode rodar de novo sempre que incluir funcionários: só preenche quem está sem senha. */
+function prepararSenhas() {
+  const sh = planilha_().getSheetByName(ABA.FUNC);
+  sh.getRange(1, 3).setValue('Senha').setFontWeight('bold').setBackground('#2f3b4c').setFontColor('#ffffff');
+  sh.getRange('C2:C').setNumberFormat('@');
+  const n = sh.getLastRow(); if (n < 2) return;
+  const v = sh.getRange(2, 1, n - 1, 3).getValues();
+  const usadas = new Set(v.map(r => String(r[2]).trim()).filter(Boolean));
+  let novas = 0;
+  v.forEach(r => {
+    if (String(r[0]).trim() && !String(r[2]).trim()) {
+      let s;
+      do { s = String(Math.floor(Math.random() * 10000)).padStart(4, '0'); }
+      while (usadas.has(s) || /^(\d)\1{3}$/.test(s) || '0123456789 9876543210'.includes(s));
+      usadas.add(s); r[2] = s; novas++;
+    }
+  });
+  sh.getRange(2, 3, n - 1, 1).setValues(v.map(r => [String(r[2])]));
+  Logger.log('Senhas geradas: ' + novas);
+}
+
 function novoPedido_(b) {
+  senhaOk_(b.funcionario, b.senha);
   const cat = catalogo_();
-  if (!cat.funcionarios.includes(b.funcionario)) throw new Error('Funcionário não cadastrado');
   if (!Array.isArray(b.itens) || !b.itens.length) throw new Error('Pedido vazio');
   if (b.chave) {                                   // evita pedido duplicado se o celular reenviar
     const c = CacheService.getScriptCache().get('k_' + b.chave);
