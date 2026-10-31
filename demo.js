@@ -49,7 +49,7 @@ window.DEMO = {
    "nome": "Allen Estrutural",
    "espec": "7 x 70 mm",
    "unidade": "un",
-   "foto": "Allen_Rosca_Parcial.webp; Allen_Rosca_Total.webp"
+   "foto": "Allen_Rosca_Parcial.webp"
   },
   {
    "id": "FIX-002",
@@ -57,7 +57,7 @@ window.DEMO = {
    "nome": "Allen Estrutural",
    "espec": "7 x 60 mm",
    "unidade": "un",
-   "foto": "Allen_Rosca_Parcial.webp; Allen_Rosca_Total.webp"
+   "foto": "Allen_Rosca_Parcial.webp"
   },
   {
    "id": "FIX-003",
@@ -665,7 +665,7 @@ window.DEMO = {
    "nome": "Cola Branca Multibond X-080 - BiComponente",
    "espec": "Multibond X-080 25kg Catalizado",
    "unidade": "un",
-   "foto": "Cola_de_contato.webp"
+   "foto": "Multibond_X-080.jpg"
   },
   {
    "id": "COL-004",

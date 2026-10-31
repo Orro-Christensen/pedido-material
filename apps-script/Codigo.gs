@@ -34,8 +34,8 @@ const SEED_CATEGORIAS = [
   ["Ferragens", "Ferragens.jpg", 10]
 ];
 const SEED_ITENS = [
-  ["FIX-001", "SIM", "Parafusos & Fixação", "Allen Estrutural", "7 x 70 mm", "un", "Allen_Rosca_Parcial.webp; Allen_Rosca_Total.webp"],
-  ["FIX-002", "SIM", "Parafusos & Fixação", "Allen Estrutural", "7 x 60 mm", "un", "Allen_Rosca_Parcial.webp; Allen_Rosca_Total.webp"],
+  ["FIX-001", "SIM", "Parafusos & Fixação", "Allen Estrutural", "7 x 70 mm", "un", "Allen_Rosca_Parcial.webp"],
+  ["FIX-002", "SIM", "Parafusos & Fixação", "Allen Estrutural", "7 x 60 mm", "un", "Allen_Rosca_Parcial.webp"],
   ["FIX-003", "SIM", "Parafusos & Fixação", "Chip Board", "4,5 x 45 mm", "un", "Chip_4-5x45mm.webp; ChipBoard.webp"],
   ["FIX-004", "SIM", "Parafusos & Fixação", "Chip Board", "6,0 x 70 mm Charllote", "un", "ChipBoard.webp"],
   ["FIX-005", "SIM", "Parafusos & Fixação", "Chip Board", "6,0 x 80 mm", "un", "ChipBoard.webp"],
@@ -111,7 +111,7 @@ const SEED_ITENS = [
   ["LIX-023", "SIM", "Lixas", "Lixa Rolinho tupia 100 x 220 mm", "Grana 150", "un", "lixas.webp"],
   ["COL-001", "SIM", "Colas", "Cola de Contato Formica", "Formica Cola de contato 2,8 kg", "un", "Cola_de_contato.webp; formica.jpg"],
   ["COL-002", "SIM", "Colas", "Cola Branca Willbond 10 Normal", "ADESIVO FRANK WILLBOND 10 25 KG", "un", "Willbond-10.jpg"],
-  ["COL-003", "SIM", "Colas", "Cola Branca Multibond X-080 - BiComponente", "Multibond X-080 25kg Catalizado", "un", "Cola_de_contato.webp"],
+  ["COL-003", "SIM", "Colas", "Cola Branca Multibond X-080 - BiComponente", "Multibond X-080 25kg Catalizado", "un", "Multibond_X-080.jpg"],
   ["COL-004", "SIM", "Colas", "Cola Branca ADVANTAGE EP-950A", "ADVANTAGE EP-950A Catalizado 25kg", "un", "Advantage-EP-950A.jpg"],
   ["COL-005", "SIM", "Colas", "Cola TITEBOND ® II Premium", "Madeira de uso interno e externo 20kg", "un", "TiteBond_Premium.jpg"],
   ["COL-006", "SIM", "Colas", "Cascamite / Redemit 5kg", "Cascamite / Redemit 5kg", "un", "Cascamite.webp"],
