@@ -6,17 +6,19 @@
 <meta name="theme-color" content="#2f3b4c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Pedido de Material</title>
+<meta name="apple-mobile-web-app-title" content="Pede Aí O&amp;C">
+<meta name="application-name" content="Pede Aí O&amp;C">
+<title>Pede Aí O&amp;C</title>
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=4">
+<link rel="stylesheet" href="estilo.css?v=5">
 </head>
 <body>
 <div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
 <header class="topo">
   <button class="voltar" id="btnVoltar" hidden aria-label="Voltar">‹</button>
-  <h1 id="titulo">Pedido de Material</h1>
+  <h1 id="titulo">Pede Aí O&amp;C</h1>
   <button class="pessoa" id="btnPessoa" hidden></button>
 </header>
 <div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — os pedidos ficam só neste aparelho</div>
@@ -24,9 +26,9 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="config.js?v=4"></script>
-<script src="demo.js?v=4"></script>
-<script src="comum.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="demo.js?v=5"></script>
+<script src="comum.js?v=5"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
@@ -122,7 +124,7 @@ function telaSenha() {
 }
 
 function telaInicio() {
-  $('#titulo').textContent = window.NOME_EMPRESA || 'Pedido de Material';
+  $('#titulo').textContent = window.NOME_EMPRESA || 'Pede Aí O&C';
   const usadas = new Set(cat.itens.map(i => i.categoria));
   const cats = cat.categorias.filter(c => usadas.has(c.nome));
   cat.itens.forEach(i => { if (!cats.find(c => c.nome === i.categoria)) cats.push({ nome: i.categoria, foto: i.foto }); });

@@ -1,4 +1,4 @@
-# App de Pedido de Material
+# Pede Aí O&C — app de pedido de material
 
 App web para a produção pedir matéria-prima e insumos pelo celular, com fotos, e painel para quem compra.
 

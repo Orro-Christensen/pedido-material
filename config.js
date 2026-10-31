@@ -7,4 +7,4 @@ window.API_URL = 'https://script.google.com/macros/s/AKfycbzrJcbvzXHXMgLz9K1qOC_
 window.PLANILHA_URL = 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E/edit';
 
 // Nome que aparece no topo do app.
-window.NOME_EMPRESA = 'Pedido de Material';
+window.NOME_EMPRESA = 'Pede Aí O&C';
