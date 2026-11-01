@@ -15,6 +15,19 @@ window.COMPRAS_URL = 'https://orro-christensen.github.io/pedido-material/compras
 // Script do Google (botão "Zerar pedidos" abre o editor, onde se roda a função zerarPedidos).
 window.SCRIPT_URL = 'https://script.google.com/home/projects/1b8LF9SwNFOTNR6wNucHnHs5ahZbFCQJPg_dpQFLX0NO2nohv-2KzUHyi/edit';
 
+// Links do botão "Administrar" do painel de compras.
+window.ADMIN_LINKS = [
+  { icone: '🗂️', titulo: 'Planilha (Central de Insumos)', desc: 'Catálogo, funcionários e senhas, pedidos e fornecedores',
+    url: 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E/edit' },
+  { icone: '🖼️', titulo: 'Fotos (pasta img)', desc: 'Ver as fotos usadas no app',
+    url: 'https://github.com/Orro-Christensen/pedido-material/tree/main/img',
+    extra: { texto: '⬆ Enviar fotos', url: 'https://github.com/Orro-Christensen/pedido-material/upload/main/img' } },
+  { icone: '📦', titulo: 'Repositório (GitHub)', desc: 'Arquivos do app: telas, configuração e manual (LEIA-ME)',
+    url: 'https://github.com/Orro-Christensen/pedido-material' },
+  { icone: '⚙️', titulo: 'Script (Google Apps Script)', desc: 'Liga o app à planilha; funções zerarPedidos, prepararSenhas, trocarPin…',
+    url: 'https://script.google.com/home/projects/1b8LF9SwNFOTNR6wNucHnHs5ahZbFCQJPg_dpQFLX0NO2nohv-2KzUHyi/edit' },
+];
+
 // Nome que aparece no topo do app.
 window.NOME_EMPRESA = 'Pede Aí O&C';
 

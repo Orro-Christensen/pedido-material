@@ -8,7 +8,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=12">
+<link rel="stylesheet" href="estilo.css?v=13">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -50,6 +50,14 @@
     font-weight: 700; font-size: 15px; text-decoration: none; white-space: nowrap; }
   .ferramentas a:hover, .ferramentas button:hover { background: #e9e6df; }
   #btnAtualizar[disabled] { opacity: .7; }
+  .admin-lista { display: grid; gap: 10px; margin: 12px 0 16px; }
+  .admin-item { display: flex; gap: 12px; align-items: center; background: #f6f5f1; border: 1px solid var(--linha); border-radius: 14px; padding: 12px; }
+  .admin-item .ic { font-size: 28px; width: 40px; text-align: center; flex: none; }
+  .admin-item .tx { flex: 1; min-width: 0; } .admin-item .tx b { display: block; } .admin-item .tx span { color: var(--suave); font-size: 14px; }
+  .admin-item a { text-decoration: none; background: var(--topo); color: #fff; border-radius: 10px; padding: 9px 14px; font-weight: 700; white-space: nowrap; }
+  .admin-item a.sec { background: #fff; color: var(--texto); border: 1px solid var(--linha); }
+  .admin-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  @media (max-width: 640px) { .admin-item { flex-wrap: wrap; } .admin-acoes { width: 100%; padding-left: 52px; justify-content: flex-start; } }
   .passos { margin: 10px 0 14px; padding-left: 22px; } .passos li { margin-bottom: 8px; }
   .alerta { background: #fdecea; color: #8a1c13; border-radius: 10px; padding: 10px 12px; font-weight: 600; margin: 10px 0; }
   .qr { display: flex; justify-content: center; margin: 14px 0; } .qr svg { width: 220px; height: 220px; }
@@ -67,6 +75,7 @@
   <button id="btnLinkApp" title="Link e QR Code do app da produção">🔗 Link do app</button>
   <button id="btnLinkCompras" title="Link e QR Code deste painel de compras">🔗 Link compras</button>
   <button id="btnZerar" title="Como zerar os pedidos para começar a usar">🧹 Zerar pedidos</button>
+  <button id="btnAdmin" title="Planilha, fotos, repositório e script">🛠️ Administrar</button>
 </nav>
 <div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — PIN 1234</div>
 <main id="tela"></main>
@@ -74,9 +83,9 @@
 <div id="modal"></div>
 
 <script src="lib/qrcode.js"></script>
-<script src="config.js?v=12"></script>
-<script src="demo.js?v=12"></script>
-<script src="comum.js?v=12"></script>
+<script src="config.js?v=13"></script>
+<script src="demo.js?v=13"></script>
+<script src="comum.js?v=13"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
@@ -108,6 +117,21 @@ $('#btnLinkApp').onclick = () => abrirLink('Link do app da produção', APP_URL,
   `Pede Aí O&C — app para pedir material:\n${APP_URL}\n\nAbra no celular, toque no seu nome e digite sua senha. Para instalar: menu do navegador → "Adicionar à tela inicial".`);
 $('#btnLinkCompras').onclick = () => abrirLink('Link do painel de compras', COMPRAS_URL,
   `Pede Aí O&C — painel de compras:\n${COMPRAS_URL}\n\nEntre com o PIN de compras (peça ao responsável).`);
+
+// Atalhos de administração
+$('#btnAdmin').onclick = () => {
+  const L = window.ADMIN_LINKS || [];
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal largo">
+    <div class="titulo" style="margin-top:0">🛠️ Administrar</div>
+    <div class="admin-lista">${L.map(l => `<div class="admin-item"><div class="ic">${l.icone}</div>
+      <div class="tx"><b>${esc(l.titulo)}</b><span>${esc(l.desc)}</span></div>
+      <div class="admin-acoes">${l.extra ? `<a class="sec" href="${esc(l.extra.url)}" target="_blank" rel="noopener">${esc(l.extra.texto)}</a>` : ''}
+        <a href="${esc(l.url)}" target="_blank" rel="noopener">Abrir</a></div></div>`).join('')}</div>
+    <p class="meta">Planilha e script: entre com a conta Google dona da planilha. Fotos e repositório: entre no GitHub com uma conta da organização Orro-Christensen.</p>
+    <button class="btn btn-claro" id="aX">Fechar</button></div></div>`;
+  $('#aX').onclick = fechar;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
+};
 
 // Instruções para zerar os pedidos (a função roda no script do Google)
 $('#btnZerar').onclick = () => {
