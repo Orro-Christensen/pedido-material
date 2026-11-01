@@ -8,7 +8,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=8">
+<link rel="stylesheet" href="estilo.css?v=9">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -59,9 +59,9 @@
 <div id="barra"></div>
 <div id="modal"></div>
 
-<script src="config.js?v=8"></script>
-<script src="demo.js?v=8"></script>
-<script src="comum.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="demo.js?v=9"></script>
+<script src="comum.js?v=9"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
@@ -70,7 +70,7 @@ if (App.DEMO) $('#faixaDemo').hidden = false;
 if (window.PLANILHA_URL) { $('#linkPlanilha').href = window.PLANILHA_URL; $('#linkPlanilha').hidden = false; }
 
 let pin = ls.get('pin_compras', '');
-let linhas = [], fornecedores = [], aba = 'Novo', marcados = new Set(), carregando = false;
+let linhas = [], fornecedores = [], cadastro = [], aba = 'Novo', marcados = new Set(), carregando = false;
 let rel = { de: '', ate: '', cat: '', linhas: null };
 $('#btnAtualizar').onclick = () => carregar();
 
@@ -102,7 +102,7 @@ async function carregar(primeira) {
   if (primeira) tela.innerHTML = '<div class="carregando">Carregando…</div>';
   try {
     const j = await get({ action: 'pedidos', pin, dias: 60 });
-    linhas = j.linhas; fornecedores = j.fornecedores || [];
+    linhas = j.linhas; fornecedores = j.fornecedores || []; cadastro = j.cadastro || [];
     const existentes = new Set(linhas.filter(l => l.status === 'Novo').map(l => l.linha));
     marcados.forEach(x => { if (!existentes.has(x)) marcados.delete(x); });
     ls.set('pin_compras', pin); $('#btnAtualizar').hidden = false; desenhar();
@@ -117,10 +117,10 @@ async function carregar(primeira) {
 function desenhar() {
   const cont = s => linhas.filter(l => l.status === s).length;
   const abas = [['Novo', `Novos (${cont('Novo')})`], ['Comprado', 'Comprados'], ['Cancelado', 'Cancelados'],
-                ['Lista', '🧾 Lista de compra'], ['Relatorio', '📈 Relatório']];
+                ['Lista', '🧾 Lista de compra'], ['Relatorio', '📈 Relatório'], ['Fornecedores', '🏪 Fornecedores']];
   tela.innerHTML = `<div class="abas">${abas.map(([k, t]) => `<button data-a="${k}" class="${aba === k ? 'on' : ''}">${t}</button>`).join('')}</div><div id="corpo"></div>`;
   tela.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { aba = b.dataset.a; marcados.clear(); desenhar(); });
-  ({ Novo: desenharNovos, Comprado: desenharComprados, Cancelado: desenharCancelados, Lista: desenharLista, Relatorio: desenharRelatorio })[aba]();
+  ({ Novo: desenharNovos, Comprado: desenharComprados, Cancelado: desenharCancelados, Lista: desenharLista, Relatorio: desenharRelatorio, Fornecedores: desenharFornecedores })[aba]();
   desenharBarra();
 }
 
@@ -351,6 +351,57 @@ function desenharRelatorio() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     a.download = `compras_${rel.de}_a_${rel.ate}.csv`; document.body.appendChild(a); a.click(); a.remove();
   };
+}
+
+// ---------- cadastro de fornecedores ----------
+function desenharFornecedores() {
+  const so = n => String(n || '').replace(/\D/g, '');
+  const zap = t => { let n = so(t); if (n.length >= 10 && n.length <= 11) n = '55' + n; return n.length >= 12 ? 'https://wa.me/' + n : ''; };
+  $('#corpo').innerHTML = `<div class="barra-topo"><span class="meta">${cadastro.length} fornecedor(es). Só o nome é necessário; o resto pode ser completado depois.</span>
+      <button class="btn-p on" id="fNovo">➕ Novo fornecedor</button></div>
+    ${cadastro.length ? `<table><thead><tr><th>Fornecedor</th><th>Contato</th><th class="esconde-cel">E-mail</th><th class="esconde-cel">CNPJ</th><th></th></tr></thead><tbody>
+    ${cadastro.map((f, i) => `<tr style="${f.ativo ? '' : 'opacity:.5'}"><td><b>${esc(f.nome)}</b>${f.ativo ? '' : ' <span class="meta">(inativo)</span>'}
+        ${f.obs ? `<br><span class="meta">${esc(f.obs)}</span>` : ''}</td>
+      <td>${esc(f.contato)}${f.telefone ? `<br>${zap(f.telefone) ? `<a href="${zap(f.telefone)}" target="_blank" rel="noopener">📱 ${esc(f.telefone)}</a>` : esc(f.telefone)}` : ''}</td>
+      <td class="esconde-cel">${esc(f.email)}</td><td class="esconde-cel">${esc(f.cnpj)}</td>
+      <td><button class="lapis" data-f="${i}" title="Editar">✏️</button></td></tr>`).join('')}</tbody></table>`
+    : '<div class="vazio">Nenhum fornecedor cadastrado ainda.</div>'}`;
+  $('#fNovo').onclick = () => abrirFornecedor({});
+  $('#corpo').querySelectorAll('[data-f]').forEach(b => b.onclick = () => abrirFornecedor(cadastro[b.dataset.f]));
+}
+
+function abrirFornecedor(f) {
+  const novo = !f.codigo;
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal">
+    <div class="titulo" style="margin-top:0">${novo ? 'Novo fornecedor' : 'Editar fornecedor'}</div>
+    <div class="campos">
+      <div style="grid-column:1/-1"><label for="fNome">Nome</label><input class="campo peq" id="fNome" value="${esc(f.nome || '')}" placeholder="ex.: Casa do Marceneiro"></div>
+      <div><label for="fCont">Contato <span class="opcional">(opcional)</span></label><input class="campo peq" id="fCont" value="${esc(f.contato || '')}" placeholder="nome do vendedor"></div>
+      <div><label for="fTel">Telefone / WhatsApp <span class="opcional">(opcional)</span></label><input class="campo peq" id="fTel" inputmode="tel" value="${esc(f.telefone || '')}" placeholder="(11) 99999-9999"></div>
+      <div><label for="fMail">E-mail <span class="opcional">(opcional)</span></label><input class="campo peq" id="fMail" inputmode="email" value="${esc(f.email || '')}"></div>
+      <div><label for="fCnpj">CNPJ <span class="opcional">(opcional)</span></label><input class="campo peq" id="fCnpj" value="${esc(f.cnpj || '')}"></div>
+      <div style="grid-column:1/-1"><label for="fObs">Observações <span class="opcional">(opcional)</span></label><input class="campo peq" id="fObs" value="${esc(f.obs || '')}" placeholder="o que fornece, prazo, condições…"></div>
+      ${novo ? '' : `<label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" id="fAtivo" ${f.ativo ? 'checked' : ''} style="width:22px;height:22px"> Ativo</label>`}
+    </div>
+    <div class="pilha" style="margin-top:16px"><button class="btn btn-ok" id="fOk">Salvar</button><button class="btn btn-claro" id="fX">Fechar</button></div></div></div>`;
+  $('#fX').onclick = fechar;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
+  $('#fOk').onclick = async () => {
+    const d = { codigo: f.codigo || '', nome: $('#fNome').value.trim(), contato: $('#fCont').value, telefone: $('#fTel').value,
+      email: $('#fMail').value, cnpj: $('#fCnpj').value, obs: $('#fObs').value, ativo: novo ? true : $('#fAtivo').checked };
+    if (!d.nome) { $('#fNome').focus(); return aviso('Informe o nome do fornecedor', true); }
+    const b = $('#fOk'); b.disabled = true;
+    try {
+      const r = await post({ action: 'salvarFornecedor', pin, ...d });
+      d.codigo = r.codigo || d.codigo;
+      const i = cadastro.findIndex(x => x.codigo === d.codigo);
+      if (i >= 0) cadastro[i] = d; else cadastro.push(d);
+      cadastro.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      if (d.ativo && !fornecedores.includes(d.nome)) fornecedores.push(d.nome);
+      fechar(); desenhar(); aviso('Fornecedor salvo');
+    } catch (e) { b.disabled = false; aviso('Erro: ' + e.message, true); }
+  };
+  setTimeout(() => $('#fNome').focus(), 50);
 }
 
 if (pin) carregar(true); else telaEntrar();

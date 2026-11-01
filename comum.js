@@ -33,7 +33,8 @@
     if (p.action === 'pedidos' || p.action === 'relatorio') {
       if (p.pin !== '1234') return Promise.reject(new Error('PIN inválido'));
       if (p.action === 'relatorio') return Promise.resolve({ linhas: linhas.filter(l => l.status === 'Comprado' && l.dataCompra >= p.de && l.dataCompra <= p.ate) });
-      return Promise.resolve({ linhas, fornecedores: [...new Set(linhas.map(l => l.fornecedor).filter(Boolean))] });
+      const cad = ls.get('demo_forn', []);
+      return Promise.resolve({ linhas, cadastro: cad, fornecedores: [...new Set(cad.filter(f => f.ativo).map(f => f.nome).concat(linhas.map(l => l.fornecedor).filter(Boolean)))] });
     }
     return Promise.resolve({ ok: true });
   }
@@ -69,6 +70,12 @@
         else if (l.linha === b.linha) Object.assign(l, { dataCompra: b.data || '', qtdComprada: num(b.qtd), preco: num(b.preco), fornecedor: b.fornecedor || '' });
       });
       ls.set('demo_pedidos', linhas); return Promise.resolve({ ok: true });
+    }
+    if (b.action === 'salvarFornecedor') {
+      const cad = ls.get('demo_forn', []); const f = { ...b }; delete f.action; delete f.pin;
+      if (!f.codigo) f.codigo = 'F' + String(cad.length + 1).padStart(3, '0');
+      const i = cad.findIndex(x => x.codigo === f.codigo); if (i >= 0) cad[i] = f; else cad.push(f);
+      ls.set('demo_forn', cad); return Promise.resolve({ ok: true, codigo: f.codigo });
     }
     if (b.action === 'status') {
       if (b.pin !== '1234') return Promise.reject(new Error('PIN inválido'));

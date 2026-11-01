@@ -65,6 +65,7 @@ O catálogo foi carregado a partir de **Lista de insumos.xlsx** (145 itens). Par
 |---|---|
 | **Funcionarios** | Nome, Ativo e **Senha** (4 números). Para esconder alguém, use Ativo = NÃO. Ao incluir alguém, deixe a Senha vazia e rode `prepararSenhas` no Apps Script, ou digite você mesmo os 4 números. |
 | **Itens** | Uma linha por item. O Código precisa ser único (ex.: FIX-009). Para tirar um item do app, use Ativo = NÃO em vez de apagar a linha. |
+| **Fornecedores** | Código (F001…), Ativo, Nome, Contato, Telefone / WhatsApp, E-mail, CNPJ, Observações. Só o nome é necessário. Também pode ser mantido pela aba 🏪 Fornecedores do painel de compras. |
 | **Categorias** | Nome, foto e ordem em que aparecem na tela inicial. |
 
 O app busca o catálogo atualizado toda vez que é aberto.
@@ -85,3 +86,12 @@ Dica: fotografe o item real sobre um fundo liso. Para o marceneiro, isso funcion
 - O pedido grava **uma linha por item** na aba Pedidos, com Nº do pedido, funcionário, data, código, quantidade e status. Isso facilita filtrar, montar tabela dinâmica ou cruzar com outras planilhas.
 - Se a internet cair na hora de enviar, o pedido continua salvo no celular e pode ser reenviado. O sistema não duplica o pedido.
 - A URL do Apps Script fica visível no repositório público. Com ela é possível ver o catálogo e enviar pedidos com um nome cadastrado. Já mudar status e ver todos os pedidos exige o PIN.
+
+## Zerar os pedidos (para colocar em uso)
+
+No Apps Script, selecione a função **`zerarPedidos`** e clique em **Executar**. Ela:
+1. guarda uma cópia da aba Pedidos (aba "Pedidos (teste) data hora");
+2. apaga todas as linhas de pedido, mantendo o cabeçalho;
+3. reinicia a numeração (próximo pedido = nº 0001).
+
+Não mexe em Itens, Categorias, Funcionarios/senhas nem Fornecedores. A aba de cópia pode ser apagada depois.
