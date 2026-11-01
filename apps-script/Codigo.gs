@@ -5,11 +5,12 @@
  * 2) Implantar > Nova implantação > App da Web > Executar como: Eu / Quem pode acessar: Qualquer pessoa.
  */
 
-const ABA = { CAT: 'Categorias', ITENS: 'Itens', FUNC: 'Funcionarios', PED: 'Pedidos' };
+const ABA = { CAT: 'Categorias', ITENS: 'Itens', FUNC: 'Funcionarios', PED: 'Pedidos', FORN: 'Fornecedores' };
 const CAB = {
   CAT:   ['Categoria', 'Foto', 'Ordem'],
   ITENS: ['Código', 'Ativo', 'Categoria', 'Item', 'Especificação', 'Unidade', 'Foto'],
   FUNC:  ['Nome', 'Ativo', 'Senha'],
+  FORN:  ['Código', 'Ativo', 'Nome', 'Contato', 'Telefone / WhatsApp', 'E-mail', 'CNPJ', 'Observações'],
   PED:   ['Nº Pedido', 'ID Linha', 'Data', 'Funcionário', 'Urgente', 'Categoria', 'Código', 'Item',
           'Especificação', 'Qtd', 'Unidade', 'Obs', 'Status', 'Atualizado em',
           'Data Compra', 'Qtd Comprada', 'Preço Unit.', 'Fornecedor']
@@ -332,7 +333,7 @@ function doGet(e) {
       const dias = Number(p.dias) || 60, limite = Date.now() - dias * 864e5;
       const recente = l => new Date(l['Atualizado em'] || l['Data']).getTime() >= limite;
       const linhas = linhasPedidos_(l => String(l['Status'] || 'Novo') === 'Novo' || recente(l));
-      return json_({ linhas, fornecedores: fornecedores_() });
+      return json_({ linhas, fornecedores: fornecedores_(), cadastro: cadastroFornecedores_() });
     }
     if (p.action === 'relatorio') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
@@ -361,6 +362,7 @@ function doPost(e) {
     if (body.action === 'status') return json_(mudarStatus_(body));
     if (body.action === 'comprar') return json_(comprar_(body));
     if (body.action === 'editarCompra') return json_(editarCompra_(body));
+    if (body.action === 'salvarFornecedor') return json_(salvarFornecedor_(body));
     return json_({ erro: 'Ação desconhecida' });
   } catch (err) {
     const m = String(err.message || err);
@@ -510,10 +512,78 @@ function editarCompra_(b) {
   return { ok: true, alteradas: n };
 }
 
+/** Nomes para sugerir no campo Fornecedor: cadastro (ativos) + nomes já usados em compras. */
 function fornecedores_() {
   const s = new Set();
+  cadastroFornecedores_().filter(f => f.ativo).forEach(f => s.add(f.nome));
   tabela_(ABA.PED).forEach(l => { const f = String(l['Fornecedor'] ?? '').trim(); if (f) s.add(f); });
   return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+// ---------- Cadastro de fornecedores (aba Fornecedores) ----------
+function cadastroFornecedores_() {
+  const sh = planilha_().getSheetByName(ABA.FORN); if (!sh) return [];
+  return tabela_(ABA.FORN).filter(f => String(f['Nome'] || '').trim()).map(f => ({
+    codigo: String(f['Código'] || ''), ativo: ativo_(f['Ativo']), nome: String(f['Nome']).trim(),
+    contato: String(f['Contato'] ?? ''), telefone: String(f['Telefone / WhatsApp'] ?? ''),
+    email: String(f['E-mail'] ?? ''), cnpj: String(f['CNPJ'] ?? ''), obs: String(f['Observações'] ?? '')
+  })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+/** Inclui (sem código) ou altera (com código) um fornecedor. Só o nome é necessário. */
+function salvarFornecedor_(b) {
+  if (!pinOk_(b.pin)) throw new Error('PIN inválido');
+  const nome = String(b.nome || '').trim().slice(0, 80);
+  if (!nome) throw new Error('Informe ao menos o nome do fornecedor');
+  const sh = planilha_().getSheetByName(ABA.FORN) || criarFornecedores();
+  const txt = x => String(x ?? '').trim().slice(0, 200);
+  const linha = [null, b.ativo === false ? 'NÃO' : 'SIM', nome, txt(b.contato), txt(b.telefone), txt(b.email), txt(b.cnpj), txt(b.obs)];
+  const v = sh.getDataRange().getValues();
+  const iCod = v[0].indexOf('Código');
+  if (b.codigo) {
+    for (let r = 1; r < v.length; r++) if (String(v[r][iCod]) === String(b.codigo)) {
+      linha[0] = v[r][0]; sh.getRange(r + 1, 1, 1, linha.length).setValues([linha]); return { ok: true, codigo: String(linha[0]) };
+    }
+    throw new Error('Fornecedor não encontrado');
+  }
+  if (v.slice(1).some(l => String(l[2]).trim().toLowerCase() === nome.toLowerCase())) throw new Error('Já existe um fornecedor com esse nome');
+  const maior = v.slice(1).reduce((m, l) => Math.max(m, Number(String(l[iCod]).replace(/\D/g, '')) || 0), 0);
+  linha[0] = 'F' + String(maior + 1).padStart(3, '0');
+  sh.getRange(sh.getLastRow() + 1, 1, 1, linha.length).setValues([linha]);
+  return { ok: true, codigo: linha[0] };
+}
+
+/** Cria a aba Fornecedores (rodar uma vez) já com os nomes usados nas compras. */
+function criarFornecedores() {
+  const ss = planilha_();
+  let sh = ss.getSheetByName(ABA.FORN);
+  if (!sh) {
+    const usados = new Set(); tabela_(ABA.PED).forEach(l => { const f = String(l['Fornecedor'] ?? '').trim(); if (f) usados.add(f); });
+    const linhas = [...usados].sort().map((n, i) => ['F' + String(i + 1).padStart(3, '0'), 'SIM', n, '', '', '', '', '']);
+    sh = criarAba_(ss, ABA.FORN, CAB.FORN, linhas);
+    sh.getRange('A2:A').setNumberFormat('@'); sh.getRange('E2:G').setNumberFormat('@');
+    sh.getRange('B2:B').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['SIM', 'NÃO'], true).build());
+    Logger.log('Aba Fornecedores criada com ' + linhas.length + ' fornecedor(es) já usados nas compras.');
+  } else Logger.log('A aba Fornecedores já existe.');
+  return sh;
+}
+
+/** ⚠️ ZERAR PEDIDOS — para colocar o sistema em uso.
+ *  1) Guarda uma cópia da aba Pedidos (ex.: "Pedidos (teste) 01-11-2026 10h40");
+ *  2) Apaga todas as linhas de pedido (mantém o cabeçalho);
+ *  3) Reinicia a numeração: o próximo pedido será o nº 0001.
+ *  Não mexe em Itens, Categorias, Funcionarios (nem senhas) ou Fornecedores. */
+function zerarPedidos() {
+  const ss = planilha_(), sh = ss.getSheetByName(ABA.PED);
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const nome = 'Pedidos (teste) ' + Utilities.formatDate(new Date(), TZ_, "dd-MM-yyyy HH'h'mm");
+    sh.copyTo(ss).setName(nome);
+    if (sh.getMaxRows() > 1) sh.getRange(2, 1, sh.getMaxRows() - 1, sh.getMaxColumns()).clearContent();
+    PropertiesService.getScriptProperties().setProperty('SEQ', '0');
+    formatarPedidos_(sh);
+    Logger.log('Pedidos zerados. Cópia guardada na aba "' + nome + '". Próximo pedido: nº 0001.');
+  } finally { lock.releaseLock(); }
 }
 
 function pinOk_(pin) {
