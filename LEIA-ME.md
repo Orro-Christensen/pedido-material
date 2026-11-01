@@ -51,7 +51,7 @@ As seções 1 e 2 abaixo ficam como referência para reinstalar do zero.
 
 **Funcionário:** toca no próprio nome e digita a senha de 4 números. Fica conectado por 12 horas (um turno); depois o app pede a senha de novo. Erro de senha 5 vezes bloqueia aquele nome por 15 minutos. Depois disso, escolhe a categoria, toca no item, ajusta a quantidade e envia. Também pode marcar o pedido como urgente, pedir um item que não está na lista e acompanhar o status em "Meus pedidos".
 
-**Compras:** abre `compras.html` e entra com o PIN. Status: Novo, Comprado e Cancelado. Na aba Novos, selecione itens de vários pedidos (ou "Selecionar todos") e use **Marcar como comprado**: data, fornecedor, quantidade e preço são opcionais e podem ser completados depois na aba Comprados (✏️). A aba **Relatório** soma a quantidade comprada por item num período, com exportação CSV.
+**Compras:** abre `compras.html` e entra com o PIN (5 PINs errados seguidos bloqueiam o painel por 15 minutos). Status: Novo, Comprado e Cancelado. Na aba Novos, selecione itens de vários pedidos (ou "Selecionar todos") e use **Marcar como comprado**: data, fornecedor, quantidade e preço são opcionais e podem ser completados depois na aba Comprados (✏️). A aba **Relatório** soma a quantidade comprada por item num período, com exportação CSV.
 - **Novos:** pedidos a atender, com os urgentes no topo. Marque o pedido inteiro, ou só as linhas selecionadas, como Comprado, Entregue ou Cancelado.
 - **Lista de compra:** soma de tudo que está pendente, agrupada por item, com botão para copiar e mandar no WhatsApp do fornecedor.
 - O status também pode ser mudado direto na aba **Pedidos** da planilha (coluna Status, com lista suspensa).

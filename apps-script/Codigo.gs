@@ -348,7 +348,7 @@ function doGet(e) {
       }) });
     }
     return json_({ ok: true, app: 'requisicao-materiais' });
-  } catch (err) { return json_({ erro: String(err) }); }
+  } catch (err) { return json_({ erro: String(err.message || err) }); }
 }
 
 function doPost(e) {
@@ -614,8 +614,16 @@ function zerarPedidos() {
   } finally { lock.releaseLock(); }
 }
 
+/** Confere o PIN de compras. Depois de 5 PINs errados seguidos, o painel fica bloqueado
+ *  por 15 minutos para todo mundo (impede descobrir o PIN tentando combinações). */
 function pinOk_(pin) {
-  return String(pin || '') === String(PropertiesService.getScriptProperties().getProperty('PIN') || PIN_PADRAO);
+  const cache = CacheService.getScriptCache(), k = 'tent_pin_compras';
+  const tent = Number(cache.get(k) || 0);
+  if (tent >= 5) throw new Error('PIN bloqueado: muitas tentativas erradas. Aguarde 15 minutos.');
+  const certo = String(PropertiesService.getScriptProperties().getProperty('PIN') || PIN_PADRAO);
+  if (String(pin || '') === certo) { if (tent) cache.remove(k); return true; }
+  cache.put(k, String(tent + 1), 900);
+  return false;
 }
 function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
