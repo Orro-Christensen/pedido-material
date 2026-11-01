@@ -8,24 +8,45 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=7">
+<link rel="stylesheet" href="estilo.css?v=8">
 <style>
   body { font-size: 16px; }
+  main { max-width: 1100px; padding-bottom: 110px; }
   .abas { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .abas button { background: #fff; border: 2px solid var(--linha); border-radius: 999px; padding: 8px 16px; font-weight: 700; }
   .abas button.on { background: var(--topo); color: #fff; border-color: var(--topo); }
   .grupo li label { display: flex; gap: 10px; align-items: center; flex: 1; cursor: pointer; }
-  .grupo li input { width: 22px; height: 22px; flex: none; }
-  .acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .acoes button { border-radius: 10px; padding: 9px 14px; font-weight: 700; color: #fff; }
-  .a-Comprado { background: var(--comprado); } .a-Entregue { background: var(--entregue); }
-  .a-Cancelado { background: var(--cancelado); } .a-Novo { background: #b08900; }
+  .grupo input[type=checkbox], .sel-todos input { width: 22px; height: 22px; flex: none; accent-color: var(--comprado); }
+  .cab-grupo label { display: flex; gap: 10px; align-items: center; cursor: pointer; }
+  .sel-todos { display: flex; gap: 10px; align-items: center; font-weight: 700; margin: 0 4px 10px; cursor: pointer; }
   table { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--raio); overflow: hidden; box-shadow: var(--sombra); }
-  th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
-  th { background: #f6f5f1; font-size: 14px; } td.n { text-align: right; font-weight: 800; white-space: nowrap; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+  th { background: #f6f5f1; font-size: 14px; white-space: nowrap; }
+  td.n, th.n { text-align: right; white-space: nowrap; } td.n { font-weight: 700; }
+  tfoot td { background: #f6f5f1; font-weight: 800; }
   .entrar { max-width: 360px; margin: 60px auto; }
-  .resumo-topo { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .barra-topo { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
   .meta { color: var(--suave); font-size: 14px; }
+  .btn-p { border-radius: 10px; padding: 9px 14px; font-weight: 700; background: #fff; border: 2px solid var(--linha); }
+  .btn-p.on { background: var(--topo); color: #fff; border-color: var(--topo); }
+  .barra-acao { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: #fff; border-top: 1px solid var(--linha);
+    box-shadow: 0 -4px 14px rgba(0,0,0,.08); padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); }
+  .barra-acao .max { max-width: 1100px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .barra-acao b { flex: 1; min-width: 160px; }
+  .barra-acao button { border-radius: 12px; padding: 12px 18px; font-weight: 800; color: #fff; font-size: 17px; }
+  .b-comprar { background: var(--comprado); } .b-cancelar { background: var(--cancelado); } .b-novo { background: #b08900; }
+  .modal.largo { max-width: 760px; }
+  .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .campos label, .tab-itens label { font-weight: 700; font-size: 14px; display: block; margin-bottom: 4px; }
+  .campo.peq { padding: 9px 10px; font-size: 16px; border-radius: 10px; }
+  .tab-itens { max-height: 46vh; overflow: auto; margin: 12px 0; border: 1px solid var(--linha); border-radius: 12px; }
+  .tab-itens table { box-shadow: none; border-radius: 0; }
+  .tab-itens input { width: 100%; min-width: 80px; }
+  .opcional { color: var(--suave); font-weight: 400; }
+  .filtros { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  .filtros label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 3px; }
+  .lapis { background: none; font-size: 18px; padding: 2px 6px; }
+  @media (max-width: 640px) { .campos { grid-template-columns: 1fr; } .esconde-cel { display: none; } }
 </style>
 </head>
 <body>
@@ -35,10 +56,12 @@
   <button class="pessoa" id="btnAtualizar" hidden>↻ Atualizar</button></header>
 <div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — PIN 1234</div>
 <main id="tela"></main>
+<div id="barra"></div>
+<div id="modal"></div>
 
-<script src="config.js?v=7"></script>
-<script src="demo.js?v=7"></script>
-<script src="comum.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="demo.js?v=8"></script>
+<script src="comum.js?v=8"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
@@ -47,16 +70,25 @@ if (App.DEMO) $('#faixaDemo').hidden = false;
 if (window.PLANILHA_URL) { $('#linkPlanilha').href = window.PLANILHA_URL; $('#linkPlanilha').hidden = false; }
 
 let pin = ls.get('pin_compras', '');
-let linhas = [], aba = 'Novo', marcados = new Set(), carregando = false;
+let linhas = [], fornecedores = [], aba = 'Novo', marcados = new Set(), carregando = false;
+let rel = { de: '', ate: '', cat: '', linhas: null };
 $('#btnAtualizar').onclick = () => carregar();
 
+// ---------- utilidades ----------
 function aviso(msg, erro) {
   const d = document.createElement('div'); d.className = 'aviso' + (erro ? ' erro' : ''); d.textContent = msg;
-  document.body.appendChild(d); setTimeout(() => d.remove(), erro ? 4500 : 2000);
+  document.body.appendChild(d); setTimeout(() => d.remove(), erro ? 4500 : 2200);
 }
+const hojeISO = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const isoBR = s => s ? s.split('-').reverse().join('/') : '';
+const moeda = n => n == null || n === '' || isNaN(n) ? '' : Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const numBR = n => n == null || n === '' ? '' : String(n).replace('.', ',');
+const lerNum = s => { s = String(s ?? '').trim(); if (!s) return null; const n = Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s); return isFinite(n) ? n : null; };
+const fechar = () => $('#modal').innerHTML = '';
 
+// ---------- acesso ----------
 function telaEntrar(msg) {
-  $('#btnAtualizar').hidden = true;
+  $('#btnAtualizar').hidden = true; $('#barra').innerHTML = '';
   tela.innerHTML = `<form class="entrar grupo" id="f"><div class="titulo">Acesso de compras</div>
     <label class="rot" for="p">PIN</label><input class="campo" id="p" type="password" inputmode="numeric" autocomplete="current-password">
     ${msg ? `<p style="color:var(--perigo)">${esc(msg)}</p>` : ''}
@@ -69,7 +101,10 @@ async function carregar(primeira) {
   if (carregando) return; carregando = true;
   if (primeira) tela.innerHTML = '<div class="carregando">Carregando…</div>';
   try {
-    linhas = (await get({ action: 'pedidos', pin, dias: 30 })).linhas;
+    const j = await get({ action: 'pedidos', pin, dias: 60 });
+    linhas = j.linhas; fornecedores = j.fornecedores || [];
+    const existentes = new Set(linhas.filter(l => l.status === 'Novo').map(l => l.linha));
+    marcados.forEach(x => { if (!existentes.has(x)) marcados.delete(x); });
     ls.set('pin_compras', pin); $('#btnAtualizar').hidden = false; desenhar();
   } catch (e) {
     if (/PIN/.test(e.message)) { ls.del('pin_compras'); telaEntrar(e.message); }
@@ -78,79 +113,248 @@ async function carregar(primeira) {
   } finally { carregando = false; }
 }
 
+// ---------- abas ----------
 function desenhar() {
-  const cont = s => new Set(linhas.filter(l => l.status === s).map(l => l.pedido)).size;
-  const abas = [['Novo', `Novos (${cont('Novo')})`], ['Comprado', `Comprados (${cont('Comprado')})`],
-                ['Entregue', 'Entregues'], ['Cancelado', 'Cancelados'], ['Resumo', '🧾 Lista de compra']];
+  const cont = s => linhas.filter(l => l.status === s).length;
+  const abas = [['Novo', `Novos (${cont('Novo')})`], ['Comprado', 'Comprados'], ['Cancelado', 'Cancelados'],
+                ['Lista', '🧾 Lista de compra'], ['Relatorio', '📈 Relatório']];
   tela.innerHTML = `<div class="abas">${abas.map(([k, t]) => `<button data-a="${k}" class="${aba === k ? 'on' : ''}">${t}</button>`).join('')}</div><div id="corpo"></div>`;
   tela.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { aba = b.dataset.a; marcados.clear(); desenhar(); });
-  aba === 'Resumo' ? desenharResumo() : desenharPedidos();
+  ({ Novo: desenharNovos, Comprado: desenharComprados, Cancelado: desenharCancelados, Lista: desenharLista, Relatorio: desenharRelatorio })[aba]();
+  desenharBarra();
 }
 
-function desenharPedidos() {
-  const sel = linhas.filter(l => l.status === aba);
-  const grupos = {}; sel.forEach(l => (grupos[l.pedido] ||= []).push(l));
-  const nums = Object.keys(grupos).sort((a, b) => {
-    const ua = grupos[a][0].urgente, ub = grupos[b][0].urgente;
-    return ua !== ub ? (ua ? -1 : 1) : (aba === 'Novo' ? a.localeCompare(b) : b.localeCompare(a));
+function grupos(sel) {
+  const g = {}; sel.forEach(l => (g[l.pedido] ||= []).push(l));
+  return Object.keys(g).sort((a, b) => {
+    const ua = g[a].some(l => l.urgente), ub = g[b].some(l => l.urgente);
+    return ua !== ub ? (ua ? -1 : 1) : a.localeCompare(b);
+  }).map(n => ({ n, ls: g[n] }));
+}
+
+function desenharNovos() {
+  const sel = linhas.filter(l => l.status === 'Novo');
+  if (!sel.length) { $('#corpo').innerHTML = '<div class="vazio">Nenhum pedido novo. 👍</div>'; return; }
+  const todos = sel.every(l => marcados.has(l.linha));
+  $('#corpo').innerHTML = `<label class="sel-todos"><input type="checkbox" id="todos" ${todos ? 'checked' : ''}> Selecionar todos os itens (${sel.length})</label>` +
+    grupos(sel).map(({ n, ls: g }) => {
+      const tudo = g.every(l => marcados.has(l.linha));
+      return `<div class="grupo"><div class="cab-grupo"><label><input type="checkbox" data-p="${esc(n)}" ${tudo ? 'checked' : ''}>
+        <b>Nº ${esc(n)} — ${esc(g[0].funcionario)}</b></label>
+        <span class="meta">${dataBR(g[0].data)} ${g.some(l => l.urgente) ? '<span class="urg">URGENTE</span>' : ''}</span></div>
+        <ul>${g.map(l => `<li><label><input type="checkbox" data-l="${esc(l.linha)}" ${marcados.has(l.linha) ? 'checked' : ''}>
+          <span><b>${qtdBR(l.qtd)} ${esc(l.unidade)}</b> — ${esc(l.item)} <span class="meta">${esc(l.espec)}</span>
+          ${l.obs ? `<br><span class="meta">Obs.: ${esc(l.obs)}</span>` : ''}</span></label>
+          <span class="meta esconde-cel">${esc(l.codigo)}</span></li>`).join('')}</ul></div>`;
+    }).join('');
+  $('#todos').onchange = e => { sel.forEach(l => e.target.checked ? marcados.add(l.linha) : marcados.delete(l.linha)); desenhar(); };
+  $('#corpo').querySelectorAll('[data-p]').forEach(c => c.onchange = () => {
+    sel.filter(l => l.pedido === c.dataset.p).forEach(l => c.checked ? marcados.add(l.linha) : marcados.delete(l.linha)); desenhar();
   });
-  const proximos = { Novo: ['Comprado', 'Entregue', 'Cancelado'], Comprado: ['Entregue', 'Novo', 'Cancelado'],
-                     Entregue: ['Comprado'], Cancelado: ['Novo'] }[aba];
-  $('#corpo').innerHTML = nums.length ? nums.map(n => { const g = grupos[n];
-    return `<div class="grupo"><div class="cab-grupo"><b>Nº ${esc(n)} — ${esc(g[0].funcionario)}</b>
-      <span class="meta">${dataBR(g[0].data)} ${g[0].urgente ? '<span class="urg">URGENTE</span>' : ''}</span></div>
-      <ul>${g.map(l => `<li><label><input type="checkbox" data-l="${esc(l.linha)}" ${marcados.has(l.linha) ? 'checked' : ''}>
-        <span><b>${qtdBR(l.qtd)} ${esc(l.unidade)}</b> — ${esc(l.item)} <span class="meta">${esc(l.espec)}</span>
-        ${l.obs ? `<br><span class="meta">Obs.: ${esc(l.obs)}</span>` : ''}</span></label>
-        <span class="meta">${esc(l.codigo)}</span></li>`).join('')}</ul>
-      <div class="acoes">${proximos.map(s => `<button class="a-${s}" data-p="${esc(n)}" data-s="${s}">${rotulo(s)}</button>`).join('')}</div></div>`;
-  }).join('') : `<div class="vazio">Nenhum pedido ${aba === 'Novo' ? 'novo' : 'nesta situação'}.</div>`;
   $('#corpo').querySelectorAll('[data-l]').forEach(c => c.onchange = () => { c.checked ? marcados.add(c.dataset.l) : marcados.delete(c.dataset.l); desenhar(); });
-  $('#corpo').querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
-    const doPedido = grupos[b.dataset.p].map(l => l.linha).filter(x => marcados.has(x));
-    mudar(b.dataset.s, doPedido.length ? { linhas: doPedido } : { pedido: b.dataset.p }, b);
-  });
-}
-function rotulo(s) {
-  const qtd = marcados.size ? ' (marcados)' : ' (pedido todo)';
-  return ({ Comprado: '✓ Comprado', Entregue: '📦 Entregue', Cancelado: '✕ Cancelar', Novo: '↩ Voltar p/ novo' })[s] + qtd;
 }
 
-async function mudar(status, alvo, botao) {
-  botao.disabled = true;
+function desenharBarra() {
+  if (aba !== 'Novo' || !marcados.size) { $('#barra').innerHTML = ''; return; }
+  $('#barra').innerHTML = `<div class="barra-acao"><div class="max"><b>${marcados.size} ${marcados.size === 1 ? 'item selecionado' : 'itens selecionados'}</b>
+    <button class="b-cancelar" id="bCanc">✕ Cancelar</button><button class="b-comprar" id="bComp">✓ Marcar como comprado</button></div></div>`;
+  $('#bComp').onclick = abrirCompra;
+  $('#bCanc').onclick = () => { if (confirm(`Cancelar ${marcados.size} ${marcados.size === 1 ? 'item' : 'itens'}?`)) mudarStatus('Cancelado', [...marcados], $('#bCanc')); };
+}
+
+// ---------- registrar compra (tudo opcional) ----------
+function abrirCompra() {
+  const sel = linhas.filter(l => marcados.has(l.linha));
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal largo">
+    <div class="titulo" style="margin-top:0">Marcar ${sel.length} ${sel.length === 1 ? 'item' : 'itens'} como comprado</div>
+    <p class="meta" style="margin-top:-8px">Todos os campos são opcionais — preencha o que tiver; dá para completar depois na aba Comprados.</p>
+    <div class="campos">
+      <div><label for="cData">Data da compra</label><input class="campo peq" id="cData" type="date" value="${hojeISO()}"></div>
+      <div><label for="cForn">Fornecedor <span class="opcional">(opcional)</span></label>
+        <input class="campo peq" id="cForn" list="listaForn" placeholder="ex.: Casa do Marceneiro"></div>
+    </div>
+    <datalist id="listaForn">${fornecedores.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
+    <div class="tab-itens"><table><thead><tr><th>Item</th><th class="n">Pedido</th><th>Qtd comprada</th><th>Preço unit. (R$)</th></tr></thead><tbody>
+      ${sel.map(l => `<tr><td><b>${esc(l.item)}</b> <span class="meta">${esc(l.espec)}</span><br><span class="meta">Nº ${esc(l.pedido)} · ${esc(l.funcionario)}</span></td>
+        <td class="n">${qtdBR(l.qtd)} ${esc(l.unidade)}</td>
+        <td><input class="campo peq" data-q="${esc(l.linha)}" inputmode="decimal" placeholder="${qtdBR(l.qtd)}"></td>
+        <td><input class="campo peq" data-pr="${esc(l.linha)}" inputmode="decimal" placeholder="opcional"></td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="meta">Qtd comprada em branco = mesma quantidade pedida.</p>
+    <div class="pilha"><button class="btn btn-ok" id="cOk">✓ Confirmar compra</button><button class="btn btn-claro" id="cX">Voltar</button></div></div></div>`;
+  $('#cX').onclick = fechar;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
+  $('#cOk').onclick = async () => {
+    const b = $('#cOk'); b.disabled = true; b.textContent = 'Gravando…';
+    const itens = sel.map(l => ({ linha: l.linha, qtd: $(`[data-q="${l.linha}"]`).value, preco: $(`[data-pr="${l.linha}"]`).value }));
+    const data = $('#cData').value, fornecedor = $('#cForn').value.trim();
+    try {
+      await post({ action: 'comprar', pin, data, fornecedor, itens });
+      sel.forEach(l => { const it = itens.find(i => i.linha === l.linha);
+        Object.assign(l, { status: 'Comprado', dataCompra: data || hojeISO(), qtdComprada: lerNum(it.qtd) ?? l.qtd,
+          preco: lerNum(it.preco) ?? l.preco, fornecedor: fornecedor || l.fornecedor }); });
+      if (fornecedor && !fornecedores.includes(fornecedor)) fornecedores.push(fornecedor);
+      marcados.clear(); fechar(); desenhar(); aviso(`${sel.length} ${sel.length === 1 ? 'item marcado' : 'itens marcados'} como comprado`);
+    } catch (e) { b.disabled = false; b.textContent = '✓ Confirmar compra'; aviso('Erro: ' + e.message, true); }
+  };
+}
+
+async function mudarStatus(status, ids, botao) {
+  if (botao) botao.disabled = true;
   try {
-    await post({ action: 'status', pin, status, ...alvo });
-    linhas.forEach(l => { if ((alvo.linhas || []).includes(l.linha) || l.pedido === alvo.pedido) l.status = status; });
-    marcados.clear(); desenhar(); aviso('Marcado como ' + status);
-  } catch (e) { botao.disabled = false; aviso('Erro: ' + e.message, true); }
+    await post({ action: 'status', pin, status, linhas: ids });
+    linhas.forEach(l => { if (ids.includes(l.linha)) l.status = status; });
+    marcados.clear(); fechar(); desenhar(); aviso(`${ids.length} ${ids.length === 1 ? 'item' : 'itens'}: ${status}`);
+  } catch (e) { if (botao) botao.disabled = false; aviso('Erro: ' + e.message, true); }
 }
 
-function desenharResumo() {
-  const abertos = linhas.filter(l => l.status === 'Novo');
+// ---------- comprados (editáveis) ----------
+function desenharComprados() {
+  const sel = linhas.filter(l => l.status === 'Comprado')
+    .sort((a, b) => (b.dataCompra || '').localeCompare(a.dataCompra || '') || b.linha.localeCompare(a.linha));
+  if (!sel.length) { $('#corpo').innerHTML = '<div class="vazio">Nenhuma compra nos últimos 60 dias.</div>'; return; }
+  $('#corpo').innerHTML = `<p class="meta">Últimos 60 dias. Toque em ✏️ para completar ou corrigir data, quantidade, preço ou fornecedor.</p>
+    <table><thead><tr><th>Data</th><th>Item</th><th class="n">Qtd</th><th class="n">Preço unit.</th><th class="esconde-cel">Fornecedor</th><th class="esconde-cel">Pedido</th><th></th></tr></thead><tbody>
+    ${sel.map(l => `<tr><td>${isoBR(l.dataCompra)}</td>
+      <td><b>${esc(l.item)}</b> <span class="meta">${esc(l.espec)}</span></td>
+      <td class="n">${qtdBR(l.qtdComprada ?? l.qtd)} ${esc(l.unidade)}</td><td class="n">${moeda(l.preco)}</td>
+      <td class="esconde-cel">${esc(l.fornecedor)}</td><td class="esconde-cel meta">Nº ${esc(l.pedido)} · ${esc(l.funcionario)}</td>
+      <td><button class="lapis" data-e="${esc(l.linha)}" title="Editar">✏️</button></td></tr>`).join('')}</tbody></table>`;
+  $('#corpo').querySelectorAll('[data-e]').forEach(b => b.onclick = () => abrirEdicao(linhas.find(l => l.linha === b.dataset.e)));
+}
+
+function abrirEdicao(l) {
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal">
+    <div class="titulo" style="margin:0">${esc(l.item)}</div><p class="meta" style="margin-top:2px">${esc(l.espec)} · pedido ${qtdBR(l.qtd)} ${esc(l.unidade)} · Nº ${esc(l.pedido)} · ${esc(l.funcionario)}</p>
+    <div class="campos">
+      <div><label for="eData">Data da compra</label><input class="campo peq" id="eData" type="date" value="${esc(l.dataCompra)}"></div>
+      <div><label for="eQtd">Qtd comprada (${esc(l.unidade)})</label><input class="campo peq" id="eQtd" inputmode="decimal" value="${esc(numBR(l.qtdComprada))}"></div>
+      <div><label for="ePr">Preço unit. (R$)</label><input class="campo peq" id="ePr" inputmode="decimal" value="${esc(numBR(l.preco))}"></div>
+      <div><label for="eForn">Fornecedor</label><input class="campo peq" id="eForn" list="listaForn2" value="${esc(l.fornecedor)}"></div>
+    </div>
+    <datalist id="listaForn2">${fornecedores.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
+    <div class="pilha" style="margin-top:16px"><button class="btn btn-ok" id="eOk">Salvar</button>
+      <button class="btn btn-claro" id="eNovo">↩ Voltar para Novo</button><button class="btn btn-claro" id="eX">Fechar</button></div></div></div>`;
+  $('#eX').onclick = fechar;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
+  $('#eNovo').onclick = () => mudarStatus('Novo', [l.linha], $('#eNovo'));
+  $('#eOk').onclick = async () => {
+    const b = $('#eOk'); b.disabled = true;
+    const d = { data: $('#eData').value, qtd: $('#eQtd').value, preco: $('#ePr').value, fornecedor: $('#eForn').value.trim() };
+    try {
+      await post({ action: 'editarCompra', pin, linha: l.linha, ...d });
+      Object.assign(l, { dataCompra: d.data, qtdComprada: lerNum(d.qtd), preco: lerNum(d.preco), fornecedor: d.fornecedor });
+      if (d.fornecedor && !fornecedores.includes(d.fornecedor)) fornecedores.push(d.fornecedor);
+      fechar(); desenhar(); aviso('Salvo');
+    } catch (e) { b.disabled = false; aviso('Erro: ' + e.message, true); }
+  };
+}
+
+function desenharCancelados() {
+  const sel = linhas.filter(l => l.status === 'Cancelado');
+  if (!sel.length) { $('#corpo').innerHTML = '<div class="vazio">Nenhum item cancelado nos últimos 60 dias.</div>'; return; }
+  $('#corpo').innerHTML = `<table><thead><tr><th>Item</th><th class="n">Qtd</th><th class="esconde-cel">Pedido</th><th></th></tr></thead><tbody>
+    ${sel.map(l => `<tr><td><b>${esc(l.item)}</b> <span class="meta">${esc(l.espec)}</span></td><td class="n">${qtdBR(l.qtd)} ${esc(l.unidade)}</td>
+      <td class="esconde-cel meta">Nº ${esc(l.pedido)} · ${esc(l.funcionario)} · ${dataBR(l.data)}</td>
+      <td><button class="btn-p" data-v="${esc(l.linha)}">↩ Voltar p/ novo</button></td></tr>`).join('')}</tbody></table>`;
+  $('#corpo').querySelectorAll('[data-v]').forEach(b => b.onclick = () => mudarStatus('Novo', [b.dataset.v], b));
+}
+
+// ---------- lista de compra (pendentes somados) ----------
+function somar(sel, campoQtd) {
   const soma = {};
-  abertos.forEach(l => {
+  sel.forEach(l => {
     const k = l.codigo === 'OUTRO' ? 'OUTRO|' + l.item.toLowerCase() + '|' + l.unidade : l.codigo;
-    const s = soma[k] ||= { codigo: l.codigo, item: l.item, espec: l.espec, unidade: l.unidade, categoria: l.categoria, qtd: 0, pedidos: new Set(), urg: false, obs: [] };
-    s.qtd += Number(l.qtd) || 0; s.pedidos.add(l.pedido); s.urg ||= l.urgente; if (l.obs) s.obs.push(l.obs);
+    const s = soma[k] ||= { codigo: l.codigo, item: l.item, espec: l.espec, unidade: l.unidade, categoria: l.categoria,
+      qtd: 0, pedidos: new Set(), urg: false, obs: [], valor: 0, qtdComPreco: 0, compras: 0, fornecedores: new Set() };
+    const q = campoQtd(l);
+    s.qtd += q; s.pedidos.add(l.pedido); s.urg ||= l.urgente; s.compras++;
+    if (l.obs) s.obs.push(l.obs);
+    if (l.preco != null) { s.valor += q * l.preco; s.qtdComPreco += q; }
+    if (l.fornecedor) s.fornecedores.add(l.fornecedor);
   });
-  const lista = Object.values(soma).sort((a, b) => a.categoria.localeCompare(b.categoria) || a.item.localeCompare(b.item));
+  return Object.values(soma).sort((a, b) => a.categoria.localeCompare(b.categoria) || a.item.localeCompare(b.item) || a.espec.localeCompare(b.espec));
+}
+
+function desenharLista() {
+  const lista = somar(linhas.filter(l => l.status === 'Novo'), l => Number(l.qtd) || 0);
   if (!lista.length) { $('#corpo').innerHTML = '<div class="vazio">Nada pendente para comprar.</div>'; return; }
   const texto = 'Lista de compra — ' + new Date().toLocaleDateString('pt-BR') + '\n' +
     lista.map(s => `• ${qtdBR(s.qtd)} ${s.unidade} — ${s.item}${s.espec ? ' ' + s.espec : ''}`).join('\n');
-  $('#corpo').innerHTML = `<div class="resumo-topo"><span class="meta">Soma de todos os itens em pedidos <b>Novos</b>.</span>
-    <button class="btn btn-claro" id="copiar" style="width:auto;min-height:44px;font-size:16px">📋 Copiar lista (WhatsApp)</button></div>
-    <table><thead><tr><th>Item</th><th>Qtd total</th><th>Pedidos</th></tr></thead><tbody>${
+  $('#corpo').innerHTML = `<div class="barra-topo"><span class="meta">Soma de todos os itens em pedidos <b>Novos</b>.</span>
+    <button class="btn-p" id="copiar">📋 Copiar lista (WhatsApp)</button></div>
+    <table><thead><tr><th>Item</th><th class="n">Qtd total</th><th class="esconde-cel">Pedidos</th></tr></thead><tbody>${
     lista.map(s => `<tr><td><b>${esc(s.item)}</b> <span class="meta">${esc(s.espec)}</span> ${s.urg ? '<span class="urg">URG</span>' : ''}
       <br><span class="meta">${esc(s.codigo)} · ${esc(s.categoria)}${s.obs.length ? ' · Obs.: ' + esc(s.obs.join(' / ')) : ''}</span></td>
-      <td class="n">${qtdBR(s.qtd)} ${esc(s.unidade)}</td><td class="meta">${[...s.pedidos].join(', ')}</td></tr>`).join('')}</tbody></table>`;
-  $('#copiar').onclick = async () => {
-    try { await navigator.clipboard.writeText(texto); aviso('Lista copiada'); }
-    catch (e) { aviso('Não consegui copiar automaticamente', true); }
+      <td class="n">${qtdBR(s.qtd)} ${esc(s.unidade)}</td><td class="meta esconde-cel">${[...s.pedidos].join(', ')}</td></tr>`).join('')}</tbody></table>`;
+  $('#copiar').onclick = () => copiar(texto, 'Lista copiada');
+}
+
+async function copiar(texto, ok) {
+  try { await navigator.clipboard.writeText(texto); aviso(ok); }
+  catch (e) { aviso('Não consegui copiar automaticamente', true); }
+}
+
+// ---------- relatório por período ----------
+function periodo(tipo) {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  const iso = x => new Date(x - x.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  return { mes: [new Date(y, m, 1), d], passado: [new Date(y, m - 1, 1), new Date(y, m, 0)],
+           tri: [new Date(y, m, d.getDate() - 89), d], ano: [new Date(y, 0, 1), d] }[tipo].map(iso);
+}
+
+function desenharRelatorio() {
+  if (!rel.de) [rel.de, rel.ate] = periodo('mes');
+  const cats = rel.linhas ? [...new Set(rel.linhas.map(l => l.categoria))].sort() : [];
+  $('#corpo').innerHTML = `<div class="filtros">
+      <div><label for="rDe">De</label><input class="campo peq" id="rDe" type="date" value="${rel.de}"></div>
+      <div><label for="rAte">Até</label><input class="campo peq" id="rAte" type="date" value="${rel.ate}"></div>
+      <div><label for="rCat">Categoria</label><select class="campo peq" id="rCat"><option value="">Todas</option>
+        ${cats.map(c => `<option ${c === rel.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+      <button class="btn-p" id="rOk" style="align-self:end">Ver</button></div>
+    <div class="filtros" style="margin-top:-4px">
+      <button class="btn-p" data-per="mes">Este mês</button><button class="btn-p" data-per="passado">Mês passado</button>
+      <button class="btn-p" data-per="tri">Últimos 90 dias</button><button class="btn-p" data-per="ano">Este ano</button></div>
+    <div id="rCorpo">${rel.linhas ? '' : '<div class="carregando">Carregando…</div>'}</div>`;
+  const buscar = async () => {
+    rel.de = $('#rDe').value; rel.ate = $('#rAte').value; rel.cat = $('#rCat').value;
+    if (!rel.de || !rel.ate) return aviso('Informe o período', true);
+    $('#rCorpo').innerHTML = '<div class="carregando">Carregando…</div>';
+    try { rel.linhas = (await get({ action: 'relatorio', pin, de: rel.de, ate: rel.ate })).linhas; desenharRelatorio(); }
+    catch (e) { $('#rCorpo').innerHTML = `<div class="vazio">Erro: ${esc(e.message)}</div>`; }
+  };
+  $('#rOk').onclick = buscar;
+  $('#rCat').onchange = () => { rel.cat = $('#rCat').value; desenharRelatorio(); };
+  $('#corpo').querySelectorAll('[data-per]').forEach(b => b.onclick = () => { [rel.de, rel.ate] = periodo(b.dataset.per); $('#rDe').value = rel.de; $('#rAte').value = rel.ate; buscar(); });
+  if (!rel.linhas) { buscar(); return; }
+  const sel = rel.linhas.filter(l => !rel.cat || l.categoria === rel.cat);
+  const lista = somar(sel, l => Number(l.qtdComprada ?? l.qtd) || 0);
+  if (!lista.length) { $('#rCorpo').innerHTML = '<div class="vazio">Nenhuma compra neste período.</div>'; return; }
+  const total = lista.reduce((t, s) => t + s.valor, 0);
+  const semPreco = lista.some(s => s.qtdComPreco < s.qtd);
+  $('#rCorpo').innerHTML = `<div class="barra-topo"><span class="meta">Compras de ${isoBR(rel.de)} a ${isoBR(rel.ate)}${rel.cat ? ' · ' + esc(rel.cat) : ''} —
+      ${lista.length} itens, ${sel.length} linhas de compra.</span>
+      <span><button class="btn-p" id="rCopiar">📋 Copiar</button> <button class="btn-p" id="rCsv">⬇ Planilha (CSV)</button></span></div>
+    <table><thead><tr><th>Item</th><th class="n">Qtd comprada</th><th class="n esconde-cel">Compras</th><th class="n">Preço médio</th><th class="n">Valor</th><th class="esconde-cel">Fornecedor(es)</th></tr></thead><tbody>
+    ${lista.map(s => `<tr><td><b>${esc(s.item)}</b> <span class="meta">${esc(s.espec)}</span><br><span class="meta">${esc(s.codigo)} · ${esc(s.categoria)}</span></td>
+      <td class="n">${qtdBR(s.qtd)} ${esc(s.unidade)}</td><td class="n esconde-cel">${s.compras}</td>
+      <td class="n">${s.qtdComPreco ? moeda(s.valor / s.qtdComPreco) : '—'}</td><td class="n">${s.qtdComPreco ? moeda(s.valor) : '—'}</td>
+      <td class="esconde-cel meta">${esc([...s.fornecedores].join(', '))}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total</td><td></td><td class="esconde-cel"></td><td></td><td class="n">${moeda(total)}</td><td class="esconde-cel"></td></tr></tfoot></table>
+    ${semPreco ? '<p class="meta">Valores consideram só as compras com preço informado.</p>' : ''}`;
+  const linhasTxt = lista.map(s => [s.codigo, s.categoria, s.item, s.espec, numBR(s.qtd), s.unidade, s.compras,
+    s.qtdComPreco ? numBR((s.valor / s.qtdComPreco).toFixed(2)) : '', s.qtdComPreco ? numBR(s.valor.toFixed(2)) : '', [...s.fornecedores].join(' / ')]);
+  const cab = ['Código', 'Categoria', 'Item', 'Especificação', 'Qtd comprada', 'Unidade', 'Compras', 'Preço médio', 'Valor', 'Fornecedores'];
+  $('#rCopiar').onclick = () => copiar([cab, ...linhasTxt].map(r => r.join('\t')).join('\n'), 'Relatório copiado — cole no Excel');
+  $('#rCsv').onclick = () => {
+    const csv = '﻿' + [cab, ...linhasTxt].map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `compras_${rel.de}_a_${rel.ate}.csv`; document.body.appendChild(a); a.click(); a.remove();
   };
 }
 
 if (pin) carregar(true); else telaEntrar();
-setInterval(() => { if (pin && !document.hidden && !marcados.size) carregar(); }, 60000);
+setInterval(() => { if (pin && !document.hidden && !marcados.size && !$('#modal').innerHTML && aba !== 'Relatorio') carregar(); }, 60000);
 </script>
 </body>
 </html>

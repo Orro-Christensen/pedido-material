@@ -30,8 +30,11 @@
   function demoGet(p) {
     const linhas = ls.get('demo_pedidos', []);
     if (p.action === 'catalogo') return Promise.resolve(window.DEMO);
-    if (p.action === 'pedidos') return Promise.resolve(p.pin === '1234' ? { linhas } : { erro: 'PIN inválido' })
-      .then(j => { if (j.erro) throw new Error(j.erro); return j; });
+    if (p.action === 'pedidos' || p.action === 'relatorio') {
+      if (p.pin !== '1234') return Promise.reject(new Error('PIN inválido'));
+      if (p.action === 'relatorio') return Promise.resolve({ linhas: linhas.filter(l => l.status === 'Comprado' && l.dataCompra >= p.de && l.dataCompra <= p.ate) });
+      return Promise.resolve({ linhas, fornecedores: [...new Set(linhas.map(l => l.fornecedor).filter(Boolean))] });
+    }
     return Promise.resolve({ ok: true });
   }
   function demoPost(b) {
@@ -54,6 +57,18 @@
       });
       ls.set('demo_pedidos', linhas);
       return new Promise(r => setTimeout(() => r({ ok: true, pedido: num }), 500));
+    }
+    const num = x => { x = String(x ?? '').trim(); if (!x) return null; const n = Number(x.includes(',') ? x.replace(/\./g, '').replace(',', '.') : x); return isFinite(n) ? n : null; };
+    if (b.action === 'comprar' || b.action === 'editarCompra') {
+      if (b.pin !== '1234') return Promise.reject(new Error('PIN inválido'));
+      const hoje = new Date().toISOString().slice(0, 10);
+      linhas.forEach(l => {
+        if (b.action === 'comprar') { const it = (b.itens || []).find(i => i.linha === l.linha); if (!it) return;
+          Object.assign(l, { status: 'Comprado', dataCompra: b.data || hoje, qtdComprada: num(it.qtd) ?? l.qtd,
+            preco: num(it.preco) ?? l.preco ?? null, fornecedor: b.fornecedor || l.fornecedor || '' }); }
+        else if (l.linha === b.linha) Object.assign(l, { dataCompra: b.data || '', qtdComprada: num(b.qtd), preco: num(b.preco), fornecedor: b.fornecedor || '' });
+      });
+      ls.set('demo_pedidos', linhas); return Promise.resolve({ ok: true });
     }
     if (b.action === 'status') {
       if (b.pin !== '1234') return Promise.reject(new Error('PIN inválido'));
