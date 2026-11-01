@@ -11,13 +11,14 @@ const CAB = {
   ITENS: ['Código', 'Ativo', 'Categoria', 'Item', 'Especificação', 'Unidade', 'Foto'],
   FUNC:  ['Nome', 'Ativo', 'Senha'],
   PED:   ['Nº Pedido', 'ID Linha', 'Data', 'Funcionário', 'Urgente', 'Categoria', 'Código', 'Item',
-          'Especificação', 'Qtd', 'Unidade', 'Obs', 'Status', 'Atualizado em']
+          'Especificação', 'Qtd', 'Unidade', 'Obs', 'Status', 'Atualizado em',
+          'Data Compra', 'Qtd Comprada', 'Preço Unit.', 'Fornecedor']
 };
 // ID da Planilha Google (o trecho entre /d/ e /edit no endereço da planilha).
 const PLANILHA_ID = '12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E';
 function planilha_() { return SpreadsheetApp.openById(PLANILHA_ID); }
 
-const STATUS = ['Novo', 'Comprado', 'Entregue', 'Cancelado'];
+const STATUS = ['Novo', 'Comprado', 'Cancelado'];
 const PIN_PADRAO = '1234';
 
 // ---------- Catálogo (gerado a partir de "Lista de insumos.xlsx") ----------
@@ -210,16 +211,7 @@ function configurar() {
   const sim = SpreadsheetApp.newDataValidation().requireValueInList(['SIM', 'NÃO'], true).build();
   ss.getSheetByName(ABA.ITENS).getRange('B2:B').setDataValidation(sim);
   ss.getSheetByName(ABA.FUNC).getRange('B2:B').setDataValidation(sim);
-  ped.getRange('M2:M').setDataValidation(
-    SpreadsheetApp.newDataValidation().requireValueInList(STATUS, true).build());
-  ped.getRange('A2:B').setNumberFormat('@');   // texto: evita "0001" virar 1 ou "0001-2" virar data
-  ped.getRange('C2:C').setNumberFormat('dd/MM/yyyy HH:mm');
-  ped.getRange('N2:N').setNumberFormat('dd/MM/yyyy HH:mm');
-  const r = ped.getRange('A2:N');
-  const cor = (txt, bg) => SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=$M2="' + txt + '"').setBackground(bg).setRanges([r]).build();
-  ped.setConditionalFormatRules([cor('Novo', '#fff4cc'), cor('Comprado', '#dbe9ff'),
-                                 cor('Entregue', '#dcf5dc'), cor('Cancelado', '#eeeeee')]);
+  formatarPedidos_(ped);
 
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty('PIN')) props.setProperty('PIN', PIN_PADRAO);
@@ -227,6 +219,42 @@ function configurar() {
   const padrao = ss.getSheetByName('Página1') || ss.getSheetByName('Sheet1');
   if (padrao && ss.getSheets().length > 1 && padrao.getLastRow() === 0) ss.deleteSheet(padrao);
   Logger.log('Configuração concluída. PIN do painel de compras: ' + props.getProperty('PIN'));
+}
+
+function formatarPedidos_(ped) {
+  ped.getRange('M2:M').setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(STATUS, true).build());
+  ped.getRange('A2:B').setNumberFormat('@');   // texto: evita "0001" virar 1 ou "0001-2" virar data
+  ped.getRange('C2:C').setNumberFormat('dd/MM/yyyy HH:mm');
+  ped.getRange('N2:N').setNumberFormat('dd/MM/yyyy HH:mm');
+  ped.getRange('O2:O').setNumberFormat('dd/MM/yyyy');
+  ped.getRange('Q2:Q').setNumberFormat('"R$" #,##0.00');
+  const r = ped.getRange('A2:R');
+  const cor = (txt, bg) => SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=$M2="' + txt + '"').setBackground(bg).setRanges([r]).build();
+  ped.setConditionalFormatRules([cor('Novo', '#fff4cc'), cor('Comprado', '#dbe9ff'), cor('Cancelado', '#eeeeee')]);
+}
+
+/** Atualização do módulo de compras (rodar uma vez): cria as colunas Data Compra, Qtd Comprada,
+ *  Preço Unit. e Fornecedor na aba Pedidos, troca "Entregue" por "Comprado" e ajusta listas e cores. */
+function atualizarCompras() {
+  const sh = planilha_().getSheetByName(ABA.PED);
+  sh.getRange(1, 1, 1, CAB.PED.length).setValues([CAB.PED])
+    .setFontWeight('bold').setBackground('#2f3b4c').setFontColor('#ffffff');
+  const n = sh.getLastRow();
+  let trocados = 0;
+  if (n > 1) {
+    const iSt = CAB.PED.indexOf('Status'), iAt = CAB.PED.indexOf('Atualizado em'), iDc = CAB.PED.indexOf('Data Compra');
+    const v = sh.getRange(2, 1, n - 1, CAB.PED.length).getValues();
+    v.forEach(l => {
+      if (String(l[iSt]) === 'Entregue') { l[iSt] = 'Comprado'; trocados++; }
+      if (String(l[iSt]) === 'Comprado' && !l[iDc] && l[iAt] instanceof Date) l[iDc] = dia_(l[iAt]);
+    });
+    sh.getRange(2, iSt + 1, n - 1, CAB.PED.length - iSt).setValues(v.map(l => l.slice(iSt)));
+  }
+  formatarPedidos_(sh);
+  sh.autoResizeColumns(13, 6);
+  Logger.log('Compras atualizado. Linhas "Entregue" convertidas: ' + trocados);
 }
 
 /** Para trocar o PIN do painel de compras: altere o valor abaixo e rode esta função. */
@@ -275,8 +303,23 @@ function linhasPedidos_(filtro) {
     funcionario: String(p['Funcionário']), urgente: String(p['Urgente']) === 'SIM',
     categoria: String(p['Categoria']), codigo: String(p['Código']), item: String(p['Item']),
     espec: String(p['Especificação']), qtd: Number(p['Qtd']), unidade: String(p['Unidade']),
-    obs: String(p['Obs']), status: String(p['Status'] || 'Novo')
+    obs: String(p['Obs']), status: String(p['Status'] || 'Novo'),
+    dataCompra: p['Data Compra'] instanceof Date ? Utilities.formatDate(p['Data Compra'], TZ_, 'yyyy-MM-dd') : '',
+    qtdComprada: p['Qtd Comprada'] === '' || p['Qtd Comprada'] == null ? null : Number(p['Qtd Comprada']),
+    preco: p['Preço Unit.'] === '' || p['Preço Unit.'] == null ? null : Number(p['Preço Unit.']),
+    fornecedor: String(p['Fornecedor'] ?? '')
   }));
+}
+const TZ_ = 'America/Sao_Paulo';
+const dia_ = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+function lerDia_(s) {                         // 'yyyy-mm-dd' -> Date (meia-noite local)
+  const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+}
+function lerNumero_(x) {                       // aceita 12,50 ou 12.50; vazio = null
+  if (x === null || x === undefined || String(x).trim() === '') return null;
+  const n = Number(String(x).replace(/\./g, (m, i, t) => (t.indexOf(',') >= 0 ? '' : '.')).replace(',', '.'));
+  return isFinite(n) ? n : null;
 }
 
 // ---------- API ----------
@@ -286,9 +329,21 @@ function doGet(e) {
     if (p.action === 'catalogo') return json_(catalogo_());
     if (p.action === 'pedidos') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
-      const dias = Number(p.dias) || 15, limite = Date.now() - dias * 864e5;
-      return json_({ linhas: linhasPedidos_(l => ['Novo', 'Comprado'].includes(String(l['Status'])) ||
-                                                  new Date(l['Data']).getTime() >= limite) });
+      const dias = Number(p.dias) || 60, limite = Date.now() - dias * 864e5;
+      const recente = l => new Date(l['Atualizado em'] || l['Data']).getTime() >= limite;
+      const linhas = linhasPedidos_(l => String(l['Status'] || 'Novo') === 'Novo' || recente(l));
+      return json_({ linhas, fornecedores: fornecedores_() });
+    }
+    if (p.action === 'relatorio') {
+      if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
+      const de = lerDia_(p.de), ate = lerDia_(p.ate);
+      if (!de || !ate) return json_({ erro: 'Período inválido' });
+      const fim = new Date(ate.getTime() + 864e5);
+      return json_({ linhas: linhasPedidos_(l => {
+        if (String(l['Status']) !== 'Comprado') return false;
+        const d = l['Data Compra'] instanceof Date ? l['Data Compra'] : new Date(l['Atualizado em']);
+        return d >= de && d < fim;
+      }) });
     }
     return json_({ ok: true, app: 'requisicao-materiais' });
   } catch (err) { return json_({ erro: String(err) }); }
@@ -304,6 +359,8 @@ function doPost(e) {
     if (body.action === 'meus') return json_(meusPedidos_(body));
     if (body.action === 'novoPedido') return json_(novoPedido_(body));
     if (body.action === 'status') return json_(mudarStatus_(body));
+    if (body.action === 'comprar') return json_(comprar_(body));
+    if (body.action === 'editarCompra') return json_(editarCompra_(body));
     return json_({ erro: 'Ação desconhecida' });
   } catch (err) {
     const m = String(err.message || err);
@@ -392,23 +449,71 @@ function novoPedido_(b) {
   return { ok: true, pedido: num };
 }
 
+// ---------- Compras: altera as colunas Status..Fornecedor (M:R) de uma vez ----------
+function alterarLinhas_(alteracao) {
+  const sh = planilha_().getSheetByName(ABA.PED);
+  const n = sh.getLastRow(); if (n < 2) return 0;
+  const v = sh.getRange(1, 1, n, CAB.PED.length).getValues();
+  const cab = v.shift(), c = {};
+  CAB.PED.forEach(nome => { c[nome] = cab.indexOf(nome); if (c[nome] < 0) throw new Error('Coluna "' + nome + '" não encontrada. Rode atualizarCompras.'); });
+  let alteradas = 0;
+  v.forEach(l => { if (alteracao(l, c)) alteradas++; });
+  if (alteradas) {
+    const ini = c['Status'];
+    sh.getRange(2, ini + 1, v.length, CAB.PED.length - ini).setValues(v.map(l => l.slice(ini)));
+  }
+  return alteradas;
+}
+
 function mudarStatus_(b) {
   if (!pinOk_(b.pin)) throw new Error('PIN inválido');
   if (!STATUS.includes(b.status)) throw new Error('Status inválido');
-  const sh = planilha_().getSheetByName(ABA.PED);
-  const v = sh.getDataRange().getValues();
-  const iPed = CAB.PED.indexOf('Nº Pedido'), iLin = CAB.PED.indexOf('ID Linha'),
-        iSt = CAB.PED.indexOf('Status'), iAt = CAB.PED.indexOf('Atualizado em');
   const alvo = new Set((b.linhas || []).map(String));
-  let n = 0;
-  for (let r = 1; r < v.length; r++) {
-    if (alvo.has(String(v[r][iLin])) || (b.pedido && String(v[r][iPed]) === String(b.pedido))) {
-      sh.getRange(r + 1, iSt + 1).setValue(b.status);
-      sh.getRange(r + 1, iAt + 1).setValue(new Date());
-      n++;
-    }
-  }
+  const n = alterarLinhas_((l, c) => {
+    if (!(alvo.has(String(l[c['ID Linha']])) || (b.pedido && String(l[c['Nº Pedido']]) === String(b.pedido)))) return false;
+    l[c['Status']] = b.status; l[c['Atualizado em']] = new Date();
+    return true;
+  });
   return { ok: true, alteradas: n };
+}
+
+/** Marca como Comprado várias linhas de uma vez. Tudo opcional:
+ *  { itens: [{linha, qtd?, preco?}], data?: 'yyyy-mm-dd', fornecedor? } */
+function comprar_(b) {
+  if (!pinOk_(b.pin)) throw new Error('PIN inválido');
+  const porLinha = {}; (b.itens || []).forEach(i => porLinha[String(i.linha)] = i);
+  const data = lerDia_(b.data) || dia_(new Date());
+  const forn = String(b.fornecedor || '').trim().slice(0, 80);
+  const n = alterarLinhas_((l, c) => {
+    const it = porLinha[String(l[c['ID Linha']])]; if (!it) return false;
+    l[c['Status']] = 'Comprado'; l[c['Atualizado em']] = new Date(); l[c['Data Compra']] = data;
+    const q = lerNumero_(it.qtd); l[c['Qtd Comprada']] = q === null ? l[c['Qtd']] : q;
+    const pr = lerNumero_(it.preco); if (pr !== null) l[c['Preço Unit.']] = pr;
+    if (forn) l[c['Fornecedor']] = forn;
+    return true;
+  });
+  return { ok: true, alteradas: n };
+}
+
+/** Corrige/complementa os dados de compra de uma linha (campos vazios ficam vazios). */
+function editarCompra_(b) {
+  if (!pinOk_(b.pin)) throw new Error('PIN inválido');
+  const n = alterarLinhas_((l, c) => {
+    if (String(l[c['ID Linha']]) !== String(b.linha)) return false;
+    if ('data' in b) l[c['Data Compra']] = lerDia_(b.data) || '';
+    if ('qtd' in b) { const q = lerNumero_(b.qtd); l[c['Qtd Comprada']] = q === null ? '' : q; }
+    if ('preco' in b) { const p = lerNumero_(b.preco); l[c['Preço Unit.']] = p === null ? '' : p; }
+    if ('fornecedor' in b) l[c['Fornecedor']] = String(b.fornecedor || '').trim().slice(0, 80);
+    l[c['Atualizado em']] = new Date();
+    return true;
+  });
+  return { ok: true, alteradas: n };
+}
+
+function fornecedores_() {
+  const s = new Set();
+  tabela_(ABA.PED).forEach(l => { const f = String(l['Fornecedor'] ?? '').trim(); if (f) s.add(f); });
+  return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
 function pinOk_(pin) {
