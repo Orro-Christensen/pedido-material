@@ -19,6 +19,8 @@ window.SCRIPT_URL = 'https://script.google.com/home/projects/1b8LF9SwNFOTNR6wNuc
 window.ADMIN_LINKS = [
   { icone: '🗂️', titulo: 'Planilha (Central de Insumos)', desc: 'Catálogo, funcionários e senhas, pedidos e fornecedores',
     url: 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E/edit' },
+  { icone: '💾', titulo: 'Backup da planilha (Excel)', desc: 'Baixa uma cópia completa (todas as abas) para o computador',
+    url: 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E/export?format=xlsx', botao: '⬇ Baixar' },
   { icone: '🖼️', titulo: 'Fotos (pasta img)', desc: 'Ver as fotos usadas no app',
     url: 'https://github.com/Orro-Christensen/pedido-material/tree/main/img',
     extra: { texto: '⬆ Enviar fotos', url: 'https://github.com/Orro-Christensen/pedido-material/upload/main/img' } },

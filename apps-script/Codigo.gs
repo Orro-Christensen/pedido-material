@@ -586,6 +586,16 @@ function criarColunaFornecedorItens() {
   Logger.log('Coluna "Fornecedor" pronta na aba Itens (coluna ' + col + ').');
 }
 
+/** BACKUP: cria uma cópia completa da planilha (todas as abas, com formatação) no Google Drive
+ *  da conta dona, com nome "Backup Pedidos de Material dd-mm-aaaa hh'h'mm". Pode rodar quando quiser. */
+function backupPlanilha() {
+  const ss = planilha_();
+  const nome = 'Backup ' + ss.getName() + ' ' + Utilities.formatDate(new Date(), TZ_, "dd-MM-yyyy HH'h'mm");
+  const copia = ss.copy(nome);
+  Logger.log('Backup criado no seu Google Drive: "' + nome + '"\n' + copia.getUrl());
+  return copia.getUrl();
+}
+
 /** ⚠️ ZERAR PEDIDOS — para colocar o sistema em uso.
  *  1) Guarda uma cópia da aba Pedidos (ex.: "Pedidos (teste) 01-11-2026 10h40");
  *  2) Apaga todas as linhas de pedido (mantém o cabeçalho);

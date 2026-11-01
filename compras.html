@@ -8,7 +8,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=13">
+<link rel="stylesheet" href="estilo.css?v=14">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -83,9 +83,9 @@
 <div id="modal"></div>
 
 <script src="lib/qrcode.js"></script>
-<script src="config.js?v=13"></script>
-<script src="demo.js?v=13"></script>
-<script src="comum.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="demo.js?v=14"></script>
+<script src="comum.js?v=14"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
@@ -126,7 +126,7 @@ $('#btnAdmin').onclick = () => {
     <div class="admin-lista">${L.map(l => `<div class="admin-item"><div class="ic">${l.icone}</div>
       <div class="tx"><b>${esc(l.titulo)}</b><span>${esc(l.desc)}</span></div>
       <div class="admin-acoes">${l.extra ? `<a class="sec" href="${esc(l.extra.url)}" target="_blank" rel="noopener">${esc(l.extra.texto)}</a>` : ''}
-        <a href="${esc(l.url)}" target="_blank" rel="noopener">Abrir</a></div></div>`).join('')}</div>
+        <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.botao || 'Abrir')}</a></div></div>`).join('')}</div>
     <p class="meta">Planilha e script: entre com a conta Google dona da planilha. Fotos e repositório: entre no GitHub com uma conta da organização Orro-Christensen.</p>
     <button class="btn btn-claro" id="aX">Fechar</button></div></div>`;
   $('#aX').onclick = fechar;
