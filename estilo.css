@@ -106,3 +106,7 @@ label.rot { font-weight: 700; display: block; margin: 12px 2px 6px; }
 .teclado button { height: 74px; border-radius: 18px; background: #fff; box-shadow: var(--sombra); font-size: 32px; font-weight: 800; color: var(--texto); }
 .teclado button:active { background: #e9ecef; }
 .teclado .tec-apagar { font-size: 28px; color: var(--suave); }
+/* Fundo ilustrado na tela "Quem está pedindo?" */
+body.com-fundo::before { content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: 52vh; z-index: 0; pointer-events: none;
+  background: url(img/fundo-marcenaria.webp) no-repeat center bottom 12px / contain; opacity: .95; }
+main { position: relative; z-index: 1; }

@@ -12,7 +12,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=6">
+<link rel="stylesheet" href="estilo.css?v=7">
 </head>
 <body>
 <div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
@@ -26,9 +26,9 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="config.js?v=6"></script>
-<script src="demo.js?v=6"></script>
-<script src="comum.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="demo.js?v=7"></script>
+<script src="comum.js?v=7"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
@@ -73,6 +73,7 @@ function aviso(msg, erro) {
 // ---------- desenho das telas ----------
 function desenhar() {
   const v = pessoa ? estado.v : (estado.v === 'senha' ? 'senha' : 'quem');
+  document.body.classList.toggle('com-fundo', v === 'quem');
   $('#btnVoltar').hidden = ['inicio', 'quem', 'enviado'].includes(v) || (!pessoa && v !== 'senha');
   $('#btnPessoa').hidden = !pessoa || v === 'quem';
   $('#btnPessoa').textContent = '👤 ' + pessoa + ' · Sair';
