@@ -8,7 +8,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=11">
+<link rel="stylesheet" href="estilo.css?v=12">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -64,7 +64,6 @@
   <button class="pessoa" id="btnAtualizar" hidden>↻ Atualizar</button></header>
 <nav class="ferramentas" id="ferramentas">
   <a id="linkPlanilha" target="_blank" rel="noopener" hidden title="Planilha com catálogo, funcionários, pedidos e fornecedores">🗂️ Central de Insumos</a>
-  <a id="linkForn" target="_blank" rel="noopener" hidden title="Aba Fornecedores da planilha">🏪 Fornecedores</a>
   <button id="btnLinkApp" title="Link e QR Code do app da produção">🔗 Link do app</button>
   <button id="btnLinkCompras" title="Link e QR Code deste painel de compras">🔗 Link compras</button>
   <button id="btnZerar" title="Como zerar os pedidos para começar a usar">🧹 Zerar pedidos</button>
@@ -75,16 +74,15 @@
 <div id="modal"></div>
 
 <script src="lib/qrcode.js"></script>
-<script src="config.js?v=11"></script>
-<script src="demo.js?v=11"></script>
-<script src="comum.js?v=11"></script>
+<script src="config.js?v=12"></script>
+<script src="demo.js?v=12"></script>
+<script src="comum.js?v=12"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
 const tela = $('#tela');
 if (App.DEMO) $('#faixaDemo').hidden = false;
 if (window.PLANILHA_URL) { $('#linkPlanilha').href = window.PLANILHA_URL; $('#linkPlanilha').hidden = false; }
-if (window.FORNECEDORES_URL) { $('#linkForn').href = window.FORNECEDORES_URL; $('#linkForn').hidden = false; }
 const APP_URL = window.APP_URL || new URL('./', location.href).href;
 const COMPRAS_URL = window.COMPRAS_URL || location.href.split('#')[0].split('?')[0];
 const SCRIPT_URL = window.SCRIPT_URL || '';

@@ -8,7 +8,7 @@
 const ABA = { CAT: 'Categorias', ITENS: 'Itens', FUNC: 'Funcionarios', PED: 'Pedidos', FORN: 'Fornecedores' };
 const CAB = {
   CAT:   ['Categoria', 'Foto', 'Ordem'],
-  ITENS: ['Código', 'Ativo', 'Categoria', 'Item', 'Especificação', 'Unidade', 'Foto'],
+  ITENS: ['Código', 'Ativo', 'Categoria', 'Item', 'Especificação', 'Unidade', 'Foto', 'Fornecedor'],
   FUNC:  ['Nome', 'Ativo', 'Senha'],
   FORN:  ['Código', 'Ativo', 'Nome', 'Contato', 'Telefone / WhatsApp', 'E-mail', 'CNPJ', 'Observações'],
   PED:   ['Nº Pedido', 'ID Linha', 'Data', 'Funcionário', 'Urgente', 'Categoria', 'Código', 'Item',
@@ -187,7 +187,8 @@ const SEED_ITENS = [
  *  Não mexe em Funcionarios nem em Pedidos. */
 function substituirCatalogo() {
   const ss = planilha_();
-  [[ABA.CAT, CAB.CAT, SEED_CATEGORIAS], [ABA.ITENS, CAB.ITENS, SEED_ITENS]].forEach(([nome, cab, linhas]) => {
+  const completa = (l, n) => l.concat(Array(Math.max(0, n - l.length)).fill('')).slice(0, n);
+  [[ABA.CAT, CAB.CAT, SEED_CATEGORIAS], [ABA.ITENS, CAB.ITENS, SEED_ITENS.map(l => completa(l, CAB.ITENS.length))]].forEach(([nome, cab, linhas]) => {
     const sh = ss.getSheetByName(nome) || criarAba_(ss, nome, cab, []);
     if (sh.getMaxRows() > 1) sh.getRange(2, 1, sh.getMaxRows() - 1, sh.getMaxColumns()).clearContent();
     sh.getRange(1, 1, 1, cab.length).setValues([cab]);
@@ -204,7 +205,7 @@ function configurar() {
   const ss = planilha_();
   ss.setSpreadsheetTimeZone('America/Sao_Paulo');
   criarAba_(ss, ABA.CAT, CAB.CAT, SEED_CATEGORIAS);
-  criarAba_(ss, ABA.ITENS, CAB.ITENS, SEED_ITENS);
+  criarAba_(ss, ABA.ITENS, CAB.ITENS, SEED_ITENS.map(l => l.concat(Array(CAB.ITENS.length - l.length).fill(''))));
   criarAba_(ss, ABA.FUNC, CAB.FUNC, ["Exemplo 1 (apagar)", "Exemplo 2 (apagar)"].map(n => [n, 'SIM', '']));
   const ped = criarAba_(ss, ABA.PED, CAB.PED, []);
 
@@ -566,6 +567,23 @@ function criarFornecedores() {
     Logger.log('Aba Fornecedores criada com ' + linhas.length + ' fornecedor(es) já usados nas compras.');
   } else Logger.log('A aba Fornecedores já existe.');
   return sh;
+}
+
+/** Cria a coluna "Fornecedor" na aba Itens (fornecedor habitual do item — uso interno,
+ *  não aparece no app). Lista suspensa com os nomes da aba Fornecedores, mas aceita qualquer texto. */
+function criarColunaFornecedorItens() {
+  const ss = planilha_(), sh = ss.getSheetByName(ABA.ITENS);
+  const cab = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  let col = cab.indexOf('Fornecedor') + 1;
+  if (!col) {
+    col = cab.filter(String).length + 1;
+    sh.getRange(1, col).setValue('Fornecedor').setFontWeight('bold').setBackground('#2f3b4c').setFontColor('#ffffff');
+  }
+  const forn = ss.getSheetByName(ABA.FORN) || criarFornecedores();
+  sh.getRange(2, col, sh.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInRange(forn.getRange('C2:C'), true).setAllowInvalid(true).build());
+  sh.setColumnWidth(col, 200);
+  Logger.log('Coluna "Fornecedor" pronta na aba Itens (coluna ' + col + ').');
 }
 
 /** ⚠️ ZERAR PEDIDOS — para colocar o sistema em uso.
