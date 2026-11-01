@@ -69,6 +69,8 @@ O catálogo foi carregado a partir de **Lista de insumos.xlsx** (145 itens). Par
 
 O app busca o catálogo atualizado toda vez que é aberto.
 
+**Botão "Não Encontrou ?"** (último da tela inicial): a foto, o título e o texto ficam no arquivo `config.js` (`FOTO_OUTRO`, `TITULO_OUTRO`, `TEXTO_OUTRO`).
+
 **Fotos (coluna Foto)** aceitam três formatos:
 1. Nome de um arquivo da pasta `img/` do repositório, por exemplo `parafuso-4x40.jpg`. Tire a foto com o celular, envie para a pasta `img/` no GitHub e escreva o nome na planilha. Use nomes sem espaço nem acento.
 2. Link de compartilhamento do **Google Drive**. O arquivo precisa estar compartilhado como "Qualquer pessoa com o link".

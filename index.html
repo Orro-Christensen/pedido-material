@@ -12,7 +12,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=5">
+<link rel="stylesheet" href="estilo.css?v=6">
 </head>
 <body>
 <div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
@@ -26,9 +26,9 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="config.js?v=5"></script>
-<script src="demo.js?v=5"></script>
-<script src="comum.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="demo.js?v=6"></script>
+<script src="comum.js?v=6"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
@@ -136,15 +136,15 @@ function telaInicio() {
     if (q) {
       const achados = cat.itens.filter(i => normal(i.nome + ' ' + i.espec + ' ' + i.categoria).includes(q));
       $('#resultado').innerHTML = achados.length ? `<div class="grade">${achados.map(cartaoItem).join('')}</div>`
-        : `<div class="vazio">Nada encontrado.<br><br><button class="btn btn-acento" id="btnOutro2">➕ Pedir item que não está na lista</button></div>`;
+        : `<div class="vazio">Nada encontrado.<br><br><button class="btn btn-acento" id="btnOutro2">Não encontrou? Peça aqui</button></div>`;
       ligarItens(); const o = $('#btnOutro2'); if (o) o.onclick = abrirOutro;
       return;
     }
     $('#resultado').innerHTML = `<div class="titulo">O que você precisa?</div><div class="grade">${
       cats.map(c => `<button class="cartao" data-c="${esc(c.nome)}"><img src="${esc(foto(c.foto))}" alt="" loading="lazy">
         <span class="nome">${esc(c.nome)}</span></button>`).join('')}
-      <button class="cartao" id="btnOutro"><img src="img/outro.svg" alt=""><span class="nome">Outro item</span>
-        <span class="espec">não está na lista</span></button></div>
+      <button class="cartao" id="btnOutro"><img src="${esc(FOTO_OUTRO)}" alt=""><span class="nome">${esc(window.TITULO_OUTRO || 'Não Encontrou ?')}</span>
+        <span class="espec">${esc(window.TEXTO_OUTRO || 'toque aqui e escreva o que precisa')}</span></button></div>
       <div class="links"><button class="btn btn-claro" id="btnMeus">📋 Meus pedidos</button></div>`;
     tela.querySelectorAll('[data-c]').forEach(b => b.onclick = () => ir({ v: 'categoria', c: b.dataset.c }));
     $('#btnOutro').onclick = abrirOutro;
@@ -153,6 +153,7 @@ function telaInicio() {
   $('#busca').oninput = e => { busca = e.target.value; desenharResultado(); };
   desenharResultado();
 }
+const FOTO_OUTRO = foto(window.FOTO_OUTRO || 'outro.svg');
 const normal = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 function cartaoItem(i) {
@@ -232,7 +233,7 @@ function tirar(id) { carrinho.itens = carrinho.itens.filter(x => x.id !== id); s
 
 function abrirOutro() {
   $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal">
-    <div class="cab"><img src="img/outro.svg" alt=""><div><div class="nome">Item fora da lista</div><div class="espec">Escreva o que precisa</div></div></div>
+    <div class="cab"><img src="${esc(FOTO_OUTRO)}" alt=""><div><div class="nome">Não encontrou?</div><div class="espec">Escreva o item, a medida e a quantidade</div></div></div>
     <label class="rot" for="on">O que é?</label><input class="campo" id="on" placeholder="ex.: parafuso 5 x 70 mm">
     <label class="rot" for="oq">Quantidade</label>
     <div style="display:flex;gap:10px"><input class="campo" id="oq" type="number" inputmode="decimal" value="1" style="flex:1">
@@ -260,7 +261,7 @@ function telaCarrinho() {
   }
   tela.innerHTML = `<div class="titulo">Confira e envie</div>
     ${carrinho.itens.map((x, n) => { const i = itemPorId(x.id);
-      return `<div class="linha-item" data-n="${n}"><img src="${esc(i ? foto(i.foto) : 'img/outro.svg')}" alt="">
+      return `<div class="linha-item" data-n="${n}"><img src="${esc(i ? foto(i.foto) : FOTO_OUTRO)}" alt="">
         <div class="info"><div class="nome">${esc(i ? i.nome : x.nome)}</div><div class="espec">${esc(i ? i.espec : 'fora da lista')}</div></div>
         <div class="qtd">${qtdBR(x.qtd)}<small>${esc(i ? i.unidade : x.unidade)}</small></div></div>`; }).join('')}
     <div class="espec" style="color:var(--suave);font-size:15px;margin:-2px 4px 6px">Toque num item para mudar a quantidade.</div>

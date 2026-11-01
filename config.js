@@ -8,3 +8,8 @@ window.PLANILHA_URL = 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJh
 
 // Nome que aparece no topo do app.
 window.NOME_EMPRESA = 'Pede Aí O&C';
+
+// Botão para pedir item que não está no catálogo (última posição na tela inicial).
+window.FOTO_OUTRO   = 'NaoAchei.jpeg';                       // arquivo da pasta img
+window.TITULO_OUTRO = 'Não Encontrou ?';
+window.TEXTO_OUTRO  = 'toque aqui e escreva o que precisa';
