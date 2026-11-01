@@ -89,6 +89,9 @@ Dica: fotografe o item real sobre um fundo liso. Para o marceneiro, isso funcion
 
 ## Zerar os pedidos (para colocar em uso)
 
+No painel de compras, o botão **🧹 Zerar pedidos** mostra estas instruções e abre o script.
+
+
 No Apps Script, selecione a função **`zerarPedidos`** e clique em **Executar**. Ela:
 1. guarda uma cópia da aba Pedidos (aba "Pedidos (teste) data hora");
 2. apaga todas as linhas de pedido, mantendo o cabeçalho;

@@ -12,6 +12,12 @@ window.FORNECEDORES_URL = 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyIN
 // Endereço do app da produção (botão "Link do app" do painel de compras: copiar, WhatsApp e QR Code).
 window.APP_URL = 'https://orro-christensen.github.io/pedido-material/';
 
+// Endereço do painel de compras (botão "Link compras": copiar, WhatsApp e QR Code).
+window.COMPRAS_URL = 'https://orro-christensen.github.io/pedido-material/compras.html';
+
+// Script do Google (botão "Zerar pedidos" abre o editor, onde se roda a função zerarPedidos).
+window.SCRIPT_URL = 'https://script.google.com/home/projects/1b8LF9SwNFOTNR6wNucHnHs5ahZbFCQJPg_dpQFLX0NO2nohv-2KzUHyi/edit';
+
 // Nome que aparece no topo do app.
 window.NOME_EMPRESA = 'Pede Aí O&C';
 
