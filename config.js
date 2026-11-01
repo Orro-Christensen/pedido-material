@@ -6,6 +6,12 @@ window.API_URL = 'https://script.google.com/macros/s/AKfycbzrJcbvzXHXMgLz9K1qOC_
 // Link da Planilha Google (opcional — aparece como botão no painel de compras).
 window.PLANILHA_URL = 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E/edit';
 
+// Botão "Fornecedores" do painel de compras (abre a aba Fornecedores da planilha).
+window.FORNECEDORES_URL = 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E/edit#gid=747434532';
+
+// Endereço do app da produção (botão "Link do app" do painel de compras: copiar, WhatsApp e QR Code).
+window.APP_URL = 'https://orro-christensen.github.io/pedido-material/';
+
 // Nome que aparece no topo do app.
 window.NOME_EMPRESA = 'Pede Aí O&C';
 

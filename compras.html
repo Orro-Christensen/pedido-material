@@ -8,7 +8,7 @@
 <link rel="icon" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icone-192.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=9">
+<link rel="stylesheet" href="estilo.css?v=10">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -45,6 +45,9 @@
   .opcional { color: var(--suave); font-weight: 400; }
   .filtros { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
   .filtros label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 3px; }
+  .topo { flex-wrap: wrap; } .topo h1 { min-width: 220px; }
+  .qr { display: flex; justify-content: center; margin: 14px 0; } .qr svg { width: 220px; height: 220px; }
+  .link-app { word-break: break-all; background: #f6f5f1; border-radius: 10px; padding: 10px 12px; font-weight: 700; text-align: center; }
   .lapis { background: none; font-size: 18px; padding: 2px 6px; }
   @media (max-width: 640px) { .campos { grid-template-columns: 1fr; } .esconde-cel { display: none; } }
 </style>
@@ -53,21 +56,43 @@
 <div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
 <header class="topo"><h1>Compras — Pede Aí O&amp;C</h1>
   <a class="pessoa" id="linkPlanilha" target="_blank" rel="noopener" hidden style="text-decoration:none">📊 Planilha</a>
+  <a class="pessoa" id="linkForn" target="_blank" rel="noopener" hidden style="text-decoration:none">🏪 Fornecedores</a>
+  <button class="pessoa" id="btnLinkApp">🔗 Link do app</button>
   <button class="pessoa" id="btnAtualizar" hidden>↻ Atualizar</button></header>
 <div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — PIN 1234</div>
 <main id="tela"></main>
 <div id="barra"></div>
 <div id="modal"></div>
 
-<script src="config.js?v=9"></script>
-<script src="demo.js?v=9"></script>
-<script src="comum.js?v=9"></script>
+<script src="lib/qrcode.js"></script>
+<script src="config.js?v=10"></script>
+<script src="demo.js?v=10"></script>
+<script src="comum.js?v=10"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
 const tela = $('#tela');
 if (App.DEMO) $('#faixaDemo').hidden = false;
 if (window.PLANILHA_URL) { $('#linkPlanilha').href = window.PLANILHA_URL; $('#linkPlanilha').hidden = false; }
+if (window.FORNECEDORES_URL) { $('#linkForn').href = window.FORNECEDORES_URL; $('#linkForn').hidden = false; }
+const APP_URL = window.APP_URL || new URL('./', location.href).href;
+$('#btnLinkApp').onclick = () => {
+  const msg = `Pede Aí O&C — app para pedir material:\n${APP_URL}\n\nAbra no celular, toque no seu nome e digite sua senha. Para instalar: menu do navegador → "Adicionar à tela inicial".`;
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal">
+    <div class="titulo" style="margin-top:0">Link do app da produção</div>
+    <div class="link-app">${esc(APP_URL)}</div>
+    <div class="qr" id="qr"></div>
+    <p class="meta" style="text-align:center;margin-top:-6px">Aponte a câmera do celular para o QR Code para abrir o app.</p>
+    <div class="pilha">
+      <button class="btn btn-ok" id="lCopiar">📋 Copiar link</button>
+      <a class="btn btn-acento" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">📱 Enviar pelo WhatsApp</a>
+      <button class="btn btn-claro" id="lX">Fechar</button></div></div></div>`;
+  try { const q = qrcode(0, 'M'); q.addData(APP_URL); q.make(); $('#qr').innerHTML = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
+  catch (e) { $('#qr').innerHTML = '<span class="meta">QR Code indisponível</span>'; }
+  $('#lCopiar').onclick = () => copiar(APP_URL, 'Link copiado');
+  $('#lX').onclick = fechar;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
+};
 
 let pin = ls.get('pin_compras', '');
 let linhas = [], fornecedores = [], cadastro = [], aba = 'Novo', marcados = new Set(), carregando = false;
