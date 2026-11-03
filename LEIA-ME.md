@@ -44,7 +44,7 @@ As seções 1 e 2 abaixo ficam como referência para reinstalar do zero.
    ```
 4. Vá em **Settings → Pages → Source: Deploy from a branch → main / (root) → Save**. Em 1 a 2 minutos o link fica ativo:
    - Produção: `https://SEU-USUARIO.github.io/pedido-material/`
-   - Compras: `https://SEU-USUARIO.github.io/pedido-material/compras.html`
+   - Compras: `https://SEU-USUARIO.github.io/pedido-material/compras/`
 5. Em cada celular: abra o link e use **Adicionar à tela inicial**. O app vira um ícone como os outros aplicativos.
 
 ## 3. Uso no dia a dia

@@ -124,7 +124,9 @@
   const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; avisar(); });
   window.addEventListener('appinstalled', () => { promptInstalar = null; avisar(); });
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  // sw.js fica na raiz do app (mesma pasta do comum.js), também quando a página está em compras/
+  const urlSW = new URL('sw.js', (document.currentScript && document.currentScript.src) || location.href).href;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register(urlSW).catch(() => {});
 
   function ajudaInstalar(nomeApp) {
     const alvo = document.getElementById('modal'); if (!alvo) return;
