@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f3b4c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pede Aí O&amp;C">
+<meta name="application-name" content="Pede Aí O&amp;C">
+<title>Pede Aí O&amp;C</title>
+<link rel="icon" href="../img/favicon.png">
+<link rel="apple-touch-icon" href="../img/icone-180.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="../estilo.css?v=17">
+</head>
+<body>
+<div class="marca"><img src="../img/logo.png" alt="Orro &amp; Christensen"></div>
+<header class="topo">
+  <button class="voltar" id="btnVoltar" hidden aria-label="Voltar">‹</button>
+  <h1 id="titulo">Pede Aí O&amp;C</h1>
+  <button class="pessoa" id="btnPessoa" hidden></button>
+</header>
+<div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — os pedidos ficam só neste aparelho</div>
+<main id="tela"><div class="carregando">Carregando…</div></main>
+<div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
+<div id="modal"></div>
+
+<script src="../config.js?v=17"></script>
+<script src="../demo.js?v=17"></script>
+<script src="../comum.js?v=17"></script>
+<script>
+const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
+const $ = s => document.querySelector(s);
+const tela = $('#tela');
+
+let cat = ls.get('catalogo', null);          // {categorias, itens, funcionarios}
+// Sessão: nome + senha guardados no aparelho por 12 horas (um turno). Depois pede a senha de novo.
+const DURACAO_SESSAO = 12 * 3600e3;
+let sessao = ls.get('sessao', null);
+if (!sessao || !(sessao.ate > Date.now())) { sessao = null; ls.del('sessao'); }
+ls.del('pessoa');
+let pessoa = sessao ? sessao.pessoa : '';
+function sair(msg) { sessao = null; pessoa = ''; ls.del('sessao'); if (msg) aviso(msg, true); }
+let carrinho = ls.get('carrinho', { itens: [], urgente: false, obs: '', chave: uid() });
+let estado = { v: 'inicio' };                 // tela atual
+let busca = '';
+
+document.title = window.NOME_EMPRESA || document.title;
+if (App.DEMO) $('#faixaDemo').hidden = false;
+
+// ---------- navegação (botão voltar do celular funciona) ----------
+function ir(novo, substituir) {
+  estado = novo;
+  (substituir ? history.replaceState : history.pushState).call(history, novo, '');
+  desenhar();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('popstate', e => { fecharModal(); estado = e.state || { v: 'inicio' }; desenhar(); });
+$('#btnVoltar').onclick = () => history.back();
+$('#btnPessoa').onclick = () => { sair(); ir({ v: 'quem' }, true); };
+$('#btnCarrinho').onclick = () => ir({ v: 'carrinho' });
+
+function salvarCarrinho() { ls.set('carrinho', carrinho); }
+const itemPorId = id => (cat?.itens || []).find(i => i.id === id);
+const noCarrinho = id => carrinho.itens.find(i => i.id === id);
+
+function aviso(msg, erro) {
+  const d = document.createElement('div'); d.className = 'aviso' + (erro ? ' erro' : ''); d.textContent = msg;
+  document.body.appendChild(d); setTimeout(() => d.remove(), erro ? 4500 : 2200);
+}
+
+// ---------- desenho das telas ----------
+function desenhar() {
+  const v = pessoa ? estado.v : (estado.v === 'senha' ? 'senha' : 'quem');
+  document.body.classList.toggle('com-fundo', v === 'quem');
+  $('#btnVoltar').hidden = ['inicio', 'quem', 'enviado'].includes(v) || (!pessoa && v !== 'senha');
+  $('#btnPessoa').hidden = !pessoa || v === 'quem';
+  $('#btnPessoa').textContent = '👤 ' + pessoa + ' · Sair';
+  const n = carrinho.itens.length;
+  $('#barra').hidden = !n || ['carrinho', 'enviado', 'quem', 'senha'].includes(v);
+  $('#btnCarrinho').textContent = `🛒 Ver meu pedido (${n} ${n === 1 ? 'item' : 'itens'})`;
+  if (!cat) { tela.innerHTML = '<div class="carregando">Carregando catálogo…</div>'; return; }
+  ({ quem: telaQuem, senha: telaSenha, inicio: telaInicio, categoria: telaCategoria, carrinho: telaCarrinho,
+     enviado: telaEnviado, meus: telaMeus })[v]();
+}
+
+function telaQuem() {
+  $('#titulo').textContent = 'Quem está pedindo?';
+  if (!cat.funcionarios.length) { tela.innerHTML = '<div class="vazio">Nenhum funcionário cadastrado na planilha (aba Funcionarios).</div>'; return; }
+  tela.innerHTML = `<div class="titulo">Toque no seu nome</div><div class="pessoas">${
+    cat.funcionarios.map(n => `<button data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+    ${App.instalacao.podeMostrar() ? '<div class="links"><button class="btn btn-claro" id="btnInstalar">📲 Instalar o app neste celular</button></div>' : ''}`;
+  if ($('#btnInstalar')) $('#btnInstalar').onclick = () => App.instalacao.instalar('Pede Aí O&C');
+  tela.querySelectorAll('[data-n]').forEach(b => b.onclick = () => ir({ v: 'senha', n: b.dataset.n }));
+}
+
+function telaSenha() {
+  $('#titulo').textContent = 'Senha';
+  let dig = '', ocupado = false;
+  tela.innerHTML = `<div class="senha-tela">
+    <div class="senha-nome">${esc(estado.n)}</div>
+    <div class="senha-dica">Digite sua senha de 4 números</div>
+    <div class="senha-pontos" id="pontos">${'<span></span>'.repeat(4)}</div>
+    <div class="senha-msg" id="smsg"></div>
+    <div class="teclado">${[1,2,3,4,5,6,7,8,9].map(d => `<button data-d="${d}">${d}</button>`).join('')}
+      <button data-d="x" class="tec-apagar" aria-label="Apagar">⌫</button><button data-d="0">0</button><span></span></div></div>`;
+  const pts = () => $('#pontos').querySelectorAll('span').forEach((s, i) => s.classList.toggle('on', i < dig.length));
+  tela.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+    if (ocupado) return;
+    $('#smsg').textContent = '';
+    if (b.dataset.d === 'x') { dig = dig.slice(0, -1); pts(); return; }
+    if (dig.length >= 4) return;
+    dig += b.dataset.d; pts();
+    if (dig.length < 4) return;
+    ocupado = true; $('#smsg').textContent = 'Conferindo…';
+    try {
+      await post({ action: 'login', funcionario: estado.n, senha: dig });
+      sessao = { pessoa: estado.n, senha: dig, ate: Date.now() + DURACAO_SESSAO }; ls.set('sessao', sessao);
+      pessoa = estado.n; ir({ v: 'inicio' }, true);
+    } catch (e) {
+      ocupado = false; dig = ''; pts();
+      $('#smsg').textContent = e.message; $('#pontos').classList.add('treme');
+      setTimeout(() => $('#pontos') && $('#pontos').classList.remove('treme'), 400);
+    }
+  });
+}
+
+function telaInicio() {
+  $('#titulo').textContent = window.NOME_EMPRESA || 'Pede Aí O&C';
+  const usadas = new Set(cat.itens.map(i => i.categoria));
+  const cats = cat.categorias.filter(c => usadas.has(c.nome));
+  cat.itens.forEach(i => { if (!cats.find(c => c.nome === i.categoria)) cats.push({ nome: i.categoria, foto: i.foto }); });
+  tela.innerHTML = `
+    <input class="busca" id="busca" type="search" placeholder="🔍 Procurar (ex.: parafuso, lixa)" value="${esc(busca)}">
+    <div id="resultado"></div>`;
+  const desenharResultado = () => {
+    const q = normal(busca);
+    if (q) {
+      const achados = cat.itens.filter(i => normal(i.nome + ' ' + i.espec + ' ' + i.categoria).includes(q));
+      $('#resultado').innerHTML = achados.length ? `<div class="grade">${achados.map(cartaoItem).join('')}</div>`
+        : `<div class="vazio">Nada encontrado.<br><br><button class="btn btn-acento" id="btnOutro2">Não encontrou? Peça aqui</button></div>`;
+      ligarItens(); const o = $('#btnOutro2'); if (o) o.onclick = abrirOutro;
+      return;
+    }
+    $('#resultado').innerHTML = `<div class="titulo">O que você precisa?</div><div class="grade">${
+      cats.map(c => `<button class="cartao" data-c="${esc(c.nome)}"><img src="${esc(foto(c.foto))}" alt="" loading="lazy">
+        <span class="nome">${esc(c.nome)}</span></button>`).join('')}
+      <button class="cartao" id="btnOutro"><img src="${esc(FOTO_OUTRO)}" alt=""><span class="nome">${esc(window.TITULO_OUTRO || 'Não Encontrou ?')}</span>
+        <span class="espec">${esc(window.TEXTO_OUTRO || 'toque aqui e escreva o que precisa')}</span></button></div>
+      <div class="links"><button class="btn btn-claro" id="btnMeus">📋 Meus pedidos</button></div>
+      ${App.instalacao.podeMostrar() ? '<div class="links"><button class="btn btn-claro" id="btnInstalar">📲 Instalar o app neste celular</button></div>' : ''}`;
+    if ($('#btnInstalar')) $('#btnInstalar').onclick = () => App.instalacao.instalar('Pede Aí O&C');
+    tela.querySelectorAll('[data-c]').forEach(b => b.onclick = () => ir({ v: 'categoria', c: b.dataset.c }));
+    $('#btnOutro').onclick = abrirOutro;
+    $('#btnMeus').onclick = () => ir({ v: 'meus' });
+  };
+  $('#busca').oninput = e => { busca = e.target.value; desenharResultado(); };
+  desenharResultado();
+}
+const FOTO_OUTRO = foto(window.FOTO_OUTRO || 'outro.svg');
+const normal = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function cartaoItem(i) {
+  const c = noCarrinho(i.id);
+  return `<button class="cartao ${c ? 'no-pedido' : ''}" data-i="${esc(i.id)}">
+    <img src="${esc(foto(i.foto))}" alt="" loading="lazy">${fotos(i.foto).length > 1 ? '<span class="mais-fotos">📷 ' + fotos(i.foto).length + '</span>' : ''}
+    <span class="nome">${esc(i.nome)}</span>${i.espec ? `<span class="espec">${esc(i.espec)}</span>` : ''}
+    ${c ? `<span class="selo">✓ ${qtdBR(c.qtd)} ${esc(i.unidade)}</span>` : ''}</button>`;
+}
+function ligarItens() { tela.querySelectorAll('[data-i]').forEach(b => b.onclick = () => abrirQtd(itemPorId(b.dataset.i))); }
+
+function telaCategoria() {
+  $('#titulo').textContent = estado.c;
+  const itens = cat.itens.filter(i => i.categoria === estado.c);
+  tela.innerHTML = itens.length ? `<div class="grade">${itens.map(cartaoItem).join('')}</div>`
+                                : '<div class="vazio">Nenhum item nesta categoria.</div>';
+  ligarItens();
+}
+
+// ---------- janela de quantidade ----------
+function fecharModal() { $('#modal').innerHTML = ''; }
+function abrirQtd(i, voltarCarrinho) {
+  if (!i) return;
+  const atual = noCarrinho(i.id);
+  let q = atual ? atual.qtd : 1;
+  // Atalhos de quantidade: miúdos (parafusos, buchas, cavilhas…) em dezenas/centenas; o resto em poucas unidades
+  const rap = /parafus|fixa/i.test(i.categoria) && String(i.unidade).toLowerCase() === 'un' ? [10, 50, 100] : [1, 2, 5];
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal" role="dialog">
+    ${galeria(i)}
+    <div class="contador"><button id="menos" aria-label="Menos">−</button>
+      <input id="q" type="number" inputmode="decimal" min="0" step="any" value="${q}">
+      <button id="mais" aria-label="Mais">+</button></div>
+    <div class="unidade">${esc(i.unidade)}</div>
+    <div class="rapidos">${rap.map(r => `<button data-r="${r}">${r}</button>`).join('')}</div>
+    <div class="pilha">
+      <button class="btn btn-ok" id="confirmar">${atual ? '✓ Atualizar' : '✓ Colocar no pedido'}</button>
+      ${atual ? '<button class="btn btn-claro" id="remover" style="color:var(--perigo)">Tirar do pedido</button>' : ''}
+      <button class="btn btn-claro" id="cancelar">Cancelar</button></div></div></div>`;
+  ligarZoom(i);
+  const inp = $('#q');
+  const passo = q => q >= 100 ? 10 : 1;
+  const pega = () => Math.max(0, Number(String(inp.value).replace(',', '.')) || 0);
+  $('#menos').onclick = () => { inp.value = Math.max(0, pega() - passo(pega() - 1)); };
+  $('#mais').onclick = () => { inp.value = pega() + passo(pega()); };
+  $('#modal').querySelectorAll('[data-r]').forEach(b => b.onclick = () => inp.value = b.dataset.r);
+  $('#cancelar').onclick = fecharModal;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fecharModal(); };
+  if ($('#remover')) $('#remover').onclick = () => { tirar(i.id); fecharModal(); desenhar(); };
+  $('#confirmar').onclick = () => {
+    const v = pega();
+    if (!v) { tirar(i.id); } else if (atual) { atual.qtd = v; } else { carrinho.itens.push({ id: i.id, qtd: v }); }
+    salvarCarrinho(); fecharModal(); desenhar();
+    if (v && !voltarCarrinho) aviso('✓ ' + i.nome + ' no pedido');
+  };
+}
+function galeria(i) {
+  const fs = fotos(i.foto);
+  const titulo = `<div><div class="nome">${esc(i.nome)}</div><div class="espec">${esc(i.espec)}</div></div>`;
+  if (fs.length === 1)
+    return `<div class="cab"><img src="${esc(fs[0])}" alt="" data-zoom="0">${titulo}</div>`;
+  return `<div class="cab cab-col">${titulo}</div>
+    <div class="fotos">${fs.map((u, n) => `<img src="${esc(u)}" alt="" data-zoom="${n}">`).join('')}</div>`;
+}
+function ligarZoom(i) {
+  const fs = fotos(i.foto);
+  $('#modal').querySelectorAll('[data-zoom]').forEach(im => im.onclick = e => {
+    e.stopPropagation(); let n = +im.dataset.zoom;
+    const z = document.createElement('div'); z.className = 'zoom';
+    const mostra = () => z.innerHTML = `<img src="${esc(fs[n])}" alt="">` +
+      (fs.length > 1 ? `<div class="zoom-info">${n + 1} / ${fs.length} — toque para a próxima</div>` : '<div class="zoom-info">toque para fechar</div>');
+    mostra();
+    z.onclick = () => { if (fs.length > 1 && n < fs.length - 1) { n++; mostra(); } else z.remove(); };
+    document.body.appendChild(z);
+  });
+}
+function tirar(id) { carrinho.itens = carrinho.itens.filter(x => x.id !== id); salvarCarrinho(); }
+
+function abrirOutro() {
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal">
+    <div class="cab"><img src="${esc(FOTO_OUTRO)}" alt=""><div><div class="nome">Não encontrou?</div><div class="espec">Escreva o item, a medida e a quantidade</div></div></div>
+    <label class="rot" for="on">O que é?</label><input class="campo" id="on" placeholder="ex.: parafuso 5 x 70 mm">
+    <label class="rot" for="oq">Quantidade</label>
+    <div style="display:flex;gap:10px"><input class="campo" id="oq" type="number" inputmode="decimal" value="1" style="flex:1">
+      <select class="campo" id="ou" style="flex:1"><option>un</option><option>caixa</option><option>pacote</option><option>kg</option><option>L</option><option>m</option><option>par</option><option>rolo</option></select></div>
+    <div class="pilha" style="margin-top:18px"><button class="btn btn-ok" id="confirmar">✓ Colocar no pedido</button>
+      <button class="btn btn-claro" id="cancelar">Cancelar</button></div></div></div>`;
+  $('#cancelar').onclick = fecharModal;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fecharModal(); };
+  $('#confirmar').onclick = () => {
+    const nome = $('#on').value.trim(), qtd = Number(String($('#oq').value).replace(',', '.'));
+    if (!nome) { $('#on').focus(); return; }
+    if (!(qtd > 0)) { $('#oq').focus(); return; }
+    carrinho.itens.push({ id: 'OUTRO-' + uid(), nome, qtd, unidade: $('#ou').value });
+    salvarCarrinho(); fecharModal(); desenhar(); aviso('✓ ' + nome + ' no pedido');
+  };
+  setTimeout(() => $('#on').focus(), 100);
+}
+
+// ---------- carrinho / envio ----------
+function telaCarrinho() {
+  $('#titulo').textContent = 'Meu pedido';
+  if (!carrinho.itens.length) {
+    tela.innerHTML = `<div class="vazio">Seu pedido está vazio.<br><br><button class="btn btn-acento" id="add">Escolher materiais</button></div>`;
+    $('#add').onclick = () => ir({ v: 'inicio' }); return;
+  }
+  tela.innerHTML = `<div class="titulo">Confira e envie</div>
+    ${carrinho.itens.map((x, n) => { const i = itemPorId(x.id);
+      return `<div class="linha-item" data-n="${n}"><img src="${esc(i ? foto(i.foto) : FOTO_OUTRO)}" alt="">
+        <div class="info"><div class="nome">${esc(i ? i.nome : x.nome)}</div><div class="espec">${esc(i ? i.espec : 'fora da lista')}</div></div>
+        <div class="qtd">${qtdBR(x.qtd)}<small>${esc(i ? i.unidade : x.unidade)}</small></div></div>`; }).join('')}
+    <div class="espec" style="color:var(--suave);font-size:15px;margin:-2px 4px 6px">Toque num item para mudar a quantidade.</div>
+    <label class="chave-urgente"><input type="checkbox" id="urg" ${carrinho.urgente ? 'checked' : ''}> 🚨 É urgente</label>
+    <label class="rot" for="obs">Observação (opcional)</label>
+    <textarea class="campo" id="obs" rows="2" placeholder="ex.: cor da tinta, para qual pedido…">${esc(carrinho.obs)}</textarea>
+    <div class="pilha" style="margin-top:16px">
+      <button class="btn btn-ok" id="enviar">📨 Enviar pedido</button>
+      <button class="btn btn-claro" id="mais">➕ Adicionar mais itens</button></div>`;
+  tela.querySelectorAll('.linha-item').forEach(el => el.onclick = () => {
+    const x = carrinho.itens[el.dataset.n]; const i = itemPorId(x.id);
+    if (i) abrirQtd(i, true);
+    else if (confirmarTirar(x)) { tirar(x.id); desenhar(); }
+  });
+  $('#urg').onchange = e => { carrinho.urgente = e.target.checked; salvarCarrinho(); };
+  $('#obs').oninput = e => { carrinho.obs = e.target.value; salvarCarrinho(); };
+  $('#mais').onclick = () => ir({ v: 'inicio' });
+  $('#enviar').onclick = enviar;
+}
+function confirmarTirar(x) { return window.confirm ? window.confirm('Tirar "' + x.nome + '" do pedido?') : true; }
+
+async function enviar() {
+  const b = $('#enviar'); b.disabled = true; b.textContent = 'Enviando…';
+  try {
+    const r = await post({ action: 'novoPedido', funcionario: pessoa, senha: sessao.senha, urgente: carrinho.urgente, obs: carrinho.obs,
+      chave: carrinho.chave,
+      itens: carrinho.itens.map(x => x.id.startsWith('OUTRO-') ? { id: 'OUTRO', nome: x.nome, qtd: x.qtd, unidade: x.unidade } : { id: x.id, qtd: x.qtd }) });
+    carrinho = { itens: [], urgente: false, obs: '', chave: uid() }; salvarCarrinho();
+    ir({ v: 'enviado', num: r.pedido }, true);
+  } catch (e) {
+    b.disabled = false; b.textContent = '📨 Enviar pedido';
+    if (e.senha) { const n = pessoa; sair(e.message + ' — entre de novo. Seu pedido continua salvo.'); ir({ v: 'senha', n }, true); return; }
+    aviso('Não foi possível enviar: ' + e.message + '. Seu pedido continua salvo — tente de novo.', true);
+  }
+}
+
+function telaEnviado() {
+  $('#titulo').textContent = 'Pedido enviado';
+  tela.innerHTML = `<div class="ok-grande"><div class="circulo">✓</div><div class="num">Pedido nº ${esc(estado.num)}</div>
+    <p style="font-size:20px">Enviado para compras.</p>
+    <div class="pilha" style="max-width:420px;margin:24px auto 0">
+      <button class="btn btn-ok" id="novo">Fazer outro pedido</button>
+      <button class="btn btn-claro" id="meus">📋 Ver meus pedidos</button></div></div>`;
+  $('#novo').onclick = () => ir({ v: 'inicio' }, true);
+  $('#meus').onclick = () => ir({ v: 'meus' });
+}
+
+async function telaMeus() {
+  $('#titulo').textContent = 'Meus pedidos';
+  tela.innerHTML = '<div class="carregando">Buscando seus pedidos…</div>';
+  try {
+    const { linhas } = await post({ action: 'meus', funcionario: pessoa, senha: sessao.senha });
+    if (estado.v !== 'meus') return;
+    const grupos = {}; linhas.forEach(l => (grupos[l.pedido] ||= []).push(l));
+    const nums = Object.keys(grupos).sort().reverse();
+    tela.innerHTML = nums.length ? `<div class="titulo">Últimos 30 dias</div>` + nums.map(n => {
+      const g = grupos[n];
+      return `<div class="grupo"><div class="cab-grupo"><b>Pedido nº ${esc(n)}</b>
+        <span style="color:var(--suave)">${dataBR(g[0].data)} ${g[0].urgente ? '<span class="urg">URGENTE</span>' : ''}</span></div>
+        <ul>${g.map(l => `<li><span>${qtdBR(l.qtd)} ${esc(l.unidade)} — <b>${esc(l.item)}</b> ${esc(l.espec)}</span>
+          <span class="status st-${esc(l.status)}">${esc(l.status)}</span></li>`).join('')}</ul></div>`;
+    }).join('') : '<div class="vazio">Você ainda não fez pedidos.</div>';
+  } catch (e) {
+    if (e.senha) { const n = pessoa; sair(e.message); ir({ v: 'senha', n }, true); return; }
+    tela.innerHTML = `<div class="vazio">Não foi possível buscar: ${esc(e.message)}</div>`;
+  }
+}
+
+// ---------- início ----------
+history.replaceState(estado, '');
+desenhar();
+get({ action: 'catalogo' }).then(c => {
+  cat = c; ls.set('catalogo', c);
+  if (pessoa && !c.funcionarios.includes(pessoa)) sair();
+  carrinho.itens = carrinho.itens.filter(x => x.id.startsWith('OUTRO-') || itemPorId(x.id)); salvarCarrinho();
+  if (!$('#modal').innerHTML) desenhar();
+}).catch(e => { if (!cat) tela.innerHTML = `<div class="vazio">Sem conexão com o servidor.<br>${esc(e.message)}</div>`; else aviso('Sem conexão — usando catálogo salvo', true); });
+</script>
+</body>
+</html>

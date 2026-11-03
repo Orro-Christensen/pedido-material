@@ -1,5 +1,7 @@
 // Funções compartilhadas entre o app da produção (index.html) e o painel de compras (compras.html).
 (function () {
+  // Raiz do app = pasta onde está o comum.js (as páginas ficam em producao/ e compras/)
+  const RAIZ = new URL('.', (document.currentScript && document.currentScript.src) || location.href).href;
   const DEMO = !window.API_URL;
   const ls = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -90,11 +92,11 @@
   // Foto: nome de arquivo em img/, URL completa, ou link de compartilhamento do Google Drive.
   function foto(f) {
     f = String(f || '').trim();
-    if (!f) return 'img/outro.svg';
+    if (!f) return RAIZ + 'img/outro.svg';
     const drive = f.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([\w-]+)/);
     if (drive) return 'https://drive.google.com/thumbnail?id=' + drive[1] + '&sz=w600';
     if (/^https?:\/\//.test(f)) return f;
-    return 'img/' + f;
+    return RAIZ + 'img/' + f;
   }
 
   // Várias fotos na mesma célula, separadas por ";" → lista de endereços.
@@ -125,7 +127,7 @@
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; avisar(); });
   window.addEventListener('appinstalled', () => { promptInstalar = null; avisar(); });
   // sw.js fica na raiz do app (mesma pasta do comum.js), também quando a página está em compras/
-  const urlSW = new URL('sw.js', (document.currentScript && document.currentScript.src) || location.href).href;
+  const urlSW = RAIZ + 'sw.js';
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(urlSW).catch(() => {});
 
   function ajudaInstalar(nomeApp) {

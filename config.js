@@ -7,7 +7,7 @@ window.API_URL = 'https://script.google.com/macros/s/AKfycbzrJcbvzXHXMgLz9K1qOC_
 window.PLANILHA_URL = 'https://docs.google.com/spreadsheets/d/12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E/edit';
 
 // Endereço do app da produção (botão "Link do app" do painel de compras: copiar, WhatsApp e QR Code).
-window.APP_URL = 'https://orro-christensen.github.io/pedido-material/';
+window.APP_URL = 'https://orro-christensen.github.io/pedido-material/producao/';
 
 // Endereço do painel de compras (botão "Link compras": copiar, WhatsApp e QR Code).
 window.COMPRAS_URL = 'https://orro-christensen.github.io/pedido-material/compras/';
