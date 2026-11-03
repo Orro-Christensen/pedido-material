@@ -10,9 +10,9 @@
 <meta name="application-name" content="Pede Aí O&amp;C">
 <title>Pede Aí O&amp;C</title>
 <link rel="icon" href="img/favicon.png">
-<link rel="apple-touch-icon" href="img/icone-192.png">
+<link rel="apple-touch-icon" href="img/icone-180.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=14">
+<link rel="stylesheet" href="estilo.css?v=15">
 </head>
 <body>
 <div class="marca"><img src="img/logo.png" alt="Orro &amp; Christensen"></div>
@@ -26,9 +26,9 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="config.js?v=14"></script>
-<script src="demo.js?v=14"></script>
-<script src="comum.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="demo.js?v=15"></script>
+<script src="comum.js?v=15"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
@@ -89,7 +89,9 @@ function telaQuem() {
   $('#titulo').textContent = 'Quem está pedindo?';
   if (!cat.funcionarios.length) { tela.innerHTML = '<div class="vazio">Nenhum funcionário cadastrado na planilha (aba Funcionarios).</div>'; return; }
   tela.innerHTML = `<div class="titulo">Toque no seu nome</div><div class="pessoas">${
-    cat.funcionarios.map(n => `<button data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
+    cat.funcionarios.map(n => `<button data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+    ${App.instalacao.podeMostrar() ? '<div class="links"><button class="btn btn-claro" id="btnInstalar">📲 Instalar o app neste celular</button></div>' : ''}`;
+  if ($('#btnInstalar')) $('#btnInstalar').onclick = () => App.instalacao.instalar('Pede Aí O&C');
   tela.querySelectorAll('[data-n]').forEach(b => b.onclick = () => ir({ v: 'senha', n: b.dataset.n }));
 }
 
@@ -146,7 +148,9 @@ function telaInicio() {
         <span class="nome">${esc(c.nome)}</span></button>`).join('')}
       <button class="cartao" id="btnOutro"><img src="${esc(FOTO_OUTRO)}" alt=""><span class="nome">${esc(window.TITULO_OUTRO || 'Não Encontrou ?')}</span>
         <span class="espec">${esc(window.TEXTO_OUTRO || 'toque aqui e escreva o que precisa')}</span></button></div>
-      <div class="links"><button class="btn btn-claro" id="btnMeus">📋 Meus pedidos</button></div>`;
+      <div class="links"><button class="btn btn-claro" id="btnMeus">📋 Meus pedidos</button></div>
+      ${App.instalacao.podeMostrar() ? '<div class="links"><button class="btn btn-claro" id="btnInstalar">📲 Instalar o app neste celular</button></div>' : ''}`;
+    if ($('#btnInstalar')) $('#btnInstalar').onclick = () => App.instalacao.instalar('Pede Aí O&C');
     tela.querySelectorAll('[data-c]').forEach(b => b.onclick = () => ir({ v: 'categoria', c: b.dataset.c }));
     $('#btnOutro').onclick = abrirOutro;
     $('#btnMeus').onclick = () => ir({ v: 'meus' });

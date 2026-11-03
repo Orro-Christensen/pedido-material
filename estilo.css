@@ -110,3 +110,6 @@ label.rot { font-weight: 700; display: block; margin: 12px 2px 6px; }
 body.com-fundo::before { content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: 52vh; z-index: 0; pointer-events: none;
   background: url(img/fundo-marcenaria.webp) no-repeat center bottom 12px / contain; opacity: .95; }
 main { position: relative; z-index: 1; }
+
+.passos { margin: 10px 0 14px; padding-left: 22px; } .passos li { margin-bottom: 8px; }
+.meta { color: var(--suave); font-size: 14px; }

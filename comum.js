@@ -114,5 +114,53 @@
   function qtdBR(n) { return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 }); }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
 
-  window.App = { DEMO, ls, get, post, foto: f => fotos(f)[0], fotos, esc, dataBR, qtdBR, uid };
+  // ---------- instalação como app (Android e iPhone) ----------
+  let promptInstalar = null;
+  const ouvintes = [];
+  const avisar = () => ouvintes.forEach(f => { try { f(); } catch (e) {} });
+  const ua = navigator.userAgent;
+  const ehIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ehAndroid = /android/i.test(ua);
+  const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; avisar(); });
+  window.addEventListener('appinstalled', () => { promptInstalar = null; avisar(); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+  function ajudaInstalar(nomeApp) {
+    const alvo = document.getElementById('modal'); if (!alvo) return;
+    const passos = ehIOS ? `
+      <ol class="passos">
+        <li>Abra este link no <b>Safari</b> (no iPhone com iOS 16.4 ou mais novo, o Chrome também serve).</li>
+        <li>Toque no botão <b>Compartilhar</b> — o quadrado com a seta para cima <b>⬆</b> (embaixo no Safari; no Chrome, no alto à direita).</li>
+        <li>Role a lista e toque em <b>"Adicionar à Tela de Início"</b>.</li>
+        <li>Confira o nome <b>${esc(nomeApp)}</b> e toque em <b>Adicionar</b>.</li>
+      </ol>
+      <p class="meta">O iPhone nunca mostra um aviso automático de instalação — é sempre por esse caminho.</p>` : `
+      <ol class="passos">
+        <li>Abra este link no <b>Chrome</b>.</li>
+        <li>Toque no menu <b>⋮</b> (três pontinhos, no alto à direita).</li>
+        <li>Toque em <b>"Instalar app"</b> ou <b>"Adicionar à tela inicial"</b>.</li>
+        <li>Confirme em <b>Instalar</b>. O ícone <b>${esc(nomeApp)}</b> aparece junto dos outros aplicativos.</li>
+      </ol>
+      <p class="meta">Se a opção não aparecer, talvez o app já esteja instalado neste aparelho — procure o ícone na tela inicial.</p>`;
+    alvo.innerHTML = `<div class="fundo-modal" id="fmInst"><div class="modal">
+      <div class="titulo" style="margin-top:0">📲 Instalar ${esc(nomeApp)}</div>${passos}
+      <button class="btn btn-claro" id="instX">Fechar</button></div></div>`;
+    document.getElementById('instX').onclick = () => alvo.innerHTML = '';
+    document.getElementById('fmInst').onclick = e => { if (e.target.id === 'fmInst') alvo.innerHTML = ''; };
+  }
+
+  async function instalar(nomeApp) {
+    if (promptInstalar) {
+      const p = promptInstalar; promptInstalar = null;
+      p.prompt();
+      try { await p.userChoice; } catch (e) {}
+      avisar(); return;
+    }
+    ajudaInstalar(nomeApp);
+  }
+
+  const instalacao = { ehIOS, ehAndroid, instalado, podeMostrar: () => !instalado(), instalar, aoMudar: f => ouvintes.push(f) };
+
+  window.App = { DEMO, instalacao, ls, get, post, foto: f => fotos(f)[0], fotos, esc, dataBR, qtdBR, uid };
 })();

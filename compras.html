@@ -6,9 +6,13 @@
 <meta name="theme-color" content="#2f3b4c">
 <title>Compras — Pede Aí O&amp;C</title>
 <link rel="icon" href="img/favicon.png">
-<link rel="apple-touch-icon" href="img/icone-192.png">
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="estilo.css?v=14">
+<link rel="apple-touch-icon" href="img/icone-compras-180.png">
+<link rel="manifest" href="manifest-compras.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Compras O&amp;C">
+<meta name="application-name" content="Compras O&amp;C">
+<link rel="stylesheet" href="estilo.css?v=15">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -76,6 +80,7 @@
   <button id="btnLinkCompras" title="Link e QR Code deste painel de compras">🔗 Link compras</button>
   <button id="btnZerar" title="Como zerar os pedidos para começar a usar">🧹 Zerar pedidos</button>
   <button id="btnAdmin" title="Planilha, fotos, repositório e script">🛠️ Administrar</button>
+  <button id="btnInstalar" hidden title="Instalar o painel de compras como app">📲 Instalar</button>
 </nav>
 <div class="faixa-demo" id="faixaDemo" hidden>Modo demonstração — PIN 1234</div>
 <main id="tela"></main>
@@ -83,9 +88,9 @@
 <div id="modal"></div>
 
 <script src="lib/qrcode.js"></script>
-<script src="config.js?v=14"></script>
-<script src="demo.js?v=14"></script>
-<script src="comum.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="demo.js?v=15"></script>
+<script src="comum.js?v=15"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
@@ -117,6 +122,11 @@ $('#btnLinkApp').onclick = () => abrirLink('Link do app da produção', APP_URL,
   `Pede Aí O&C — app para pedir material:\n${APP_URL}\n\nAbra no celular, toque no seu nome e digite sua senha. Para instalar: menu do navegador → "Adicionar à tela inicial".`);
 $('#btnLinkCompras').onclick = () => abrirLink('Link do painel de compras', COMPRAS_URL,
   `Pede Aí O&C — painel de compras:\n${COMPRAS_URL}\n\nEntre com o PIN de compras (peça ao responsável).`);
+
+// Instalar o painel como app
+const atualizaInstalar = () => { $('#btnInstalar').hidden = !App.instalacao.podeMostrar(); };
+$('#btnInstalar').onclick = () => App.instalacao.instalar('Compras O&C');
+App.instalacao.aoMudar(atualizaInstalar); atualizaInstalar();
 
 // Atalhos de administração
 $('#btnAdmin').onclick = () => {
