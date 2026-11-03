@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Compras O&amp;C">
 <meta name="application-name" content="Compras O&amp;C">
-<link rel="stylesheet" href="../estilo.css?v=17">
+<link rel="stylesheet" href="../estilo.css?v=18">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -73,7 +73,8 @@
 <body>
 <div class="marca"><img src="../img/logo.png" alt="Orro &amp; Christensen"></div>
 <header class="topo"><h1>Compras — Pede Aí O&amp;C</h1>
-  <button class="pessoa" id="btnAtualizar" hidden>↻ Atualizar</button></header>
+  <button class="pessoa" id="btnAtualizar" hidden>↻ Atualizar</button>
+  <button class="pessoa" id="btnSair" hidden title="Sair do painel (pede o PIN de novo)">🔒 Sair</button></header>
 <nav class="ferramentas" id="ferramentas">
   <a id="linkPlanilha" target="_blank" rel="noopener" hidden title="Planilha com catálogo, funcionários, pedidos e fornecedores">🗂️ Central de Insumos</a>
   <button id="btnLinkApp" title="Link e QR Code do app da produção">🔗 Link do app</button>
@@ -88,9 +89,9 @@
 <div id="modal"></div>
 
 <script src="../lib/qrcode.js"></script>
-<script src="../config.js?v=17"></script>
-<script src="../demo.js?v=17"></script>
-<script src="../comum.js?v=17"></script>
+<script src="../config.js?v=18"></script>
+<script src="../demo.js?v=18"></script>
+<script src="../comum.js?v=18"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
@@ -164,9 +165,16 @@ $('#btnZerar').onclick = () => {
   $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
 };
 
-let pin = ls.get('pin_compras', '');
+// PIN guardado no aparelho por no máximo 12 horas; depois pede de novo
+const DURACAO_PIN = 12 * 3600e3;
+ls.del('pin_compras');                                     // formato antigo (sem validade)
+let acesso = ls.get('acesso_compras', null);
+if (!acesso || !(acesso.ate > Date.now())) { acesso = null; ls.del('acesso_compras'); }
+let pin = acesso ? acesso.pin : '';
+function sairCompras() { pin = ''; acesso = null; ls.del('acesso_compras'); marcados.clear(); fechar(); telaEntrar(); }
 let linhas = [], fornecedores = [], cadastro = [], aba = 'Novo', marcados = new Set(), carregando = false;
 let rel = { de: '', ate: '', cat: '', linhas: null };
+$('#btnSair').onclick = () => { if (confirm('Sair do painel de compras? Será preciso digitar o PIN de novo.')) sairCompras(); };
 $('#btnAtualizar').onclick = async () => {
   const b = $('#btnAtualizar'); if (b.disabled) return;
   b.disabled = true; b.textContent = '↻ Atualizando…';
@@ -190,7 +198,7 @@ const fechar = () => $('#modal').innerHTML = '';
 
 // ---------- acesso ----------
 function telaEntrar(msg) {
-  $('#btnAtualizar').hidden = true; $('#barra').innerHTML = '';
+  $('#btnAtualizar').hidden = true; $('#btnSair').hidden = true; $('#barra').innerHTML = '';
   tela.innerHTML = `<form class="entrar grupo" id="f"><div class="titulo">Acesso de compras</div>
     <label class="rot" for="p">PIN</label><input class="campo" id="p" type="password" inputmode="numeric" autocomplete="current-password">
     ${msg ? `<p style="color:var(--perigo)">${esc(msg)}</p>` : ''}
@@ -209,11 +217,12 @@ async function carregar(primeira, manual) {
     linhas = j.linhas; fornecedores = j.fornecedores || []; cadastro = j.cadastro || [];
     const existentes = new Set(linhas.filter(l => l.status === 'Novo').map(l => l.linha));
     marcados.forEach(x => { if (!existentes.has(x)) marcados.delete(x); });
-    ls.set('pin_compras', pin); $('#btnAtualizar').hidden = false;
+    if (!acesso || acesso.pin !== pin) { acesso = { pin, ate: Date.now() + DURACAO_PIN }; ls.set('acesso_compras', acesso); }
+    $('#btnAtualizar').hidden = false; $('#btnSair').hidden = false;
     if (!$('#modal').innerHTML) desenhar();
     return true;
   } catch (e) {
-    if (/PIN/.test(e.message)) { ls.del('pin_compras'); telaEntrar(e.message); }
+    if (/PIN/.test(e.message)) { pin = ''; acesso = null; ls.del('acesso_compras'); telaEntrar(e.message); }
     else if (primeira) tela.innerHTML = `<div class="vazio">Erro: ${esc(e.message)}</div>`;
     else aviso('Erro ao atualizar: ' + e.message, true);
     return false;
@@ -512,6 +521,7 @@ function abrirFornecedor(f) {
 }
 
 if (pin) carregar(true); else telaEntrar();
+setInterval(() => { if (acesso && !(acesso.ate > Date.now())) { sairCompras(); return; } }, 60000);
 setInterval(() => { if (pin && !document.hidden && !marcados.size && !$('#modal').innerHTML && aba !== 'Relatorio') carregar(); }, 60000);
 </script>
 </body>
