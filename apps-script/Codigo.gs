@@ -13,13 +13,14 @@ const CAB = {
   FORN:  ['Código', 'Ativo', 'Nome', 'Contato', 'Telefone / WhatsApp', 'E-mail', 'CNPJ', 'Observações'],
   PED:   ['Nº Pedido', 'ID Linha', 'Data', 'Funcionário', 'Urgente', 'Categoria', 'Código', 'Item',
           'Especificação', 'Qtd', 'Unidade', 'Obs', 'Status', 'Atualizado em',
-          'Data Compra', 'Qtd Comprada', 'Preço Unit.', 'Fornecedor']
+          'Data Compra', 'Qtd Comprada', 'Preço Unit.', 'Fornecedor',
+          'Nº Ped. Fornecedor', 'Data Ped. Fornecedor', 'Visto em']
 };
 // ID da Planilha Google (o trecho entre /d/ e /edit no endereço da planilha).
 const PLANILHA_ID = '12xfUT4sbeSyINRmJhTsSd3VkouEKVhEJYkCTwraNL5E';
 function planilha_() { return SpreadsheetApp.openById(PLANILHA_ID); }
 
-const STATUS = ['Novo', 'Comprado', 'Cancelado'];
+const STATUS = ['Novo', 'Pedido ao fornecedor', 'Comprado', 'Cancelado'];
 const PIN_PADRAO = '1234';
 
 // ---------- Catálogo (gerado a partir de "Lista de insumos.xlsx") ----------
@@ -231,10 +232,14 @@ function formatarPedidos_(ped) {
   ped.getRange('N2:N').setNumberFormat('dd/MM/yyyy HH:mm');
   ped.getRange('O2:O').setNumberFormat('dd/MM/yyyy');
   ped.getRange('Q2:Q').setNumberFormat('"R$" #,##0.00');
-  const r = ped.getRange('A2:R');
+  ped.getRange('S2:S').setNumberFormat('@');
+  ped.getRange('T2:T').setNumberFormat('dd/MM/yyyy');
+  ped.getRange('U2:U').setNumberFormat('dd/MM/yyyy HH:mm');
+  const r = ped.getRange('A2:U');
   const cor = (txt, bg) => SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=$M2="' + txt + '"').setBackground(bg).setRanges([r]).build();
-  ped.setConditionalFormatRules([cor('Novo', '#fff4cc'), cor('Comprado', '#dbe9ff'), cor('Cancelado', '#eeeeee')]);
+  ped.setConditionalFormatRules([cor('Novo', '#fff4cc'), cor('Pedido ao fornecedor', '#f3e5ff'),
+                                 cor('Comprado', '#dbe9ff'), cor('Cancelado', '#eeeeee')]);
 }
 
 /** Atualização do módulo de compras (rodar uma vez): cria as colunas Data Compra, Qtd Comprada,
@@ -309,7 +314,10 @@ function linhasPedidos_(filtro) {
     dataCompra: p['Data Compra'] instanceof Date ? Utilities.formatDate(p['Data Compra'], TZ_, 'yyyy-MM-dd') : '',
     qtdComprada: p['Qtd Comprada'] === '' || p['Qtd Comprada'] == null ? null : Number(p['Qtd Comprada']),
     preco: p['Preço Unit.'] === '' || p['Preço Unit.'] == null ? null : Number(p['Preço Unit.']),
-    fornecedor: String(p['Fornecedor'] ?? '')
+    fornecedor: String(p['Fornecedor'] ?? ''),
+    pedFornecedor: String(p['Nº Ped. Fornecedor'] ?? ''),
+    dataPedFornecedor: p['Data Ped. Fornecedor'] instanceof Date ? Utilities.formatDate(p['Data Ped. Fornecedor'], TZ_, 'yyyy-MM-dd') : '',
+    vistoEm: p['Visto em'] instanceof Date ? p['Visto em'].toISOString() : ''
   }));
 }
 const TZ_ = 'America/Sao_Paulo';
@@ -331,9 +339,11 @@ function doGet(e) {
     if (p.action === 'catalogo') return json_(catalogo_());
     if (p.action === 'pedidos') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
+      marcarVistos_();                                   // compras abriu o painel = pedidos novos "recebidos"
       const dias = Number(p.dias) || 60, limite = Date.now() - dias * 864e5;
       const recente = l => new Date(l['Atualizado em'] || l['Data']).getTime() >= limite;
-      const linhas = linhasPedidos_(l => String(l['Status'] || 'Novo') === 'Novo' || recente(l));
+      const aberto = st => st === 'Novo' || st === 'Pedido ao fornecedor';
+      const linhas = linhasPedidos_(l => aberto(String(l['Status'] || 'Novo')) || recente(l));
       return json_({ linhas, fornecedores: fornecedores_(), cadastro: cadastroFornecedores_() });
     }
     if (p.action === 'relatorio') {
@@ -362,6 +372,7 @@ function doPost(e) {
     if (body.action === 'novoPedido') return json_(novoPedido_(body));
     if (body.action === 'status') return json_(mudarStatus_(body));
     if (body.action === 'comprar') return json_(comprar_(body));
+    if (body.action === 'pedirFornecedor') return json_(pedirFornecedor_(body));
     if (body.action === 'editarCompra') return json_(editarCompra_(body));
     if (body.action === 'salvarFornecedor') return json_(salvarFornecedor_(body));
     return json_({ erro: 'Ação desconhecida' });
@@ -480,6 +491,43 @@ function mudarStatus_(b) {
   return { ok: true, alteradas: n };
 }
 
+/** Marca "Visto em" nos itens Novos que ainda não tinham (o funcionário vê "Recebido pelas compras"). */
+function marcarVistos_() {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const agora = new Date();
+    return alterarLinhas_((l, c) => {
+      if (String(l[c['Status']] || 'Novo') !== 'Novo' || !l[c['Nº Pedido']] || l[c['Visto em']]) return false;
+      l[c['Visto em']] = agora; return true;
+    });
+  } finally { lock.releaseLock(); }
+}
+
+/** Gera um pedido ao fornecedor (nº PF-0001…) para várias linhas. Tudo opcional, menos os itens:
+ *  { itens: [{linha, qtd?, preco?}], fornecedor?, data?: 'yyyy-mm-dd' }  (a observação vai só na mensagem) */
+function pedirFornecedor_(b) {
+  if (!pinOk_(b.pin)) throw new Error('PIN inválido');
+  if (!Array.isArray(b.itens) || !b.itens.length) throw new Error('Selecione ao menos um item');
+  const props = PropertiesService.getScriptProperties();
+  const seq = Number(props.getProperty('SEQ_PF') || 0) + 1;
+  props.setProperty('SEQ_PF', String(seq));
+  const num = 'PF-' + String(seq).padStart(4, '0');
+  const porLinha = {}; b.itens.forEach(i => porLinha[String(i.linha)] = i);
+  const data = lerDia_(b.data) || dia_(new Date());
+  const forn = String(b.fornecedor || '').trim().slice(0, 80);
+  const n = alterarLinhas_((l, c) => {
+    const it = porLinha[String(l[c['ID Linha']])]; if (!it) return false;
+    l[c['Status']] = 'Pedido ao fornecedor'; l[c['Atualizado em']] = new Date();
+    l[c['Nº Ped. Fornecedor']] = num; l[c['Data Ped. Fornecedor']] = data;
+    if (!l[c['Visto em']]) l[c['Visto em']] = new Date();
+    const q = lerNumero_(it.qtd); l[c['Qtd Comprada']] = q === null ? l[c['Qtd']] : q;
+    const pr = lerNumero_(it.preco); if (pr !== null) l[c['Preço Unit.']] = pr;
+    if (forn) l[c['Fornecedor']] = forn;
+    return true;
+  });
+  return { ok: true, pedidoFornecedor: num, alteradas: n };
+}
+
 /** Marca como Comprado várias linhas de uma vez. Tudo opcional:
  *  { itens: [{linha, qtd?, preco?}], data?: 'yyyy-mm-dd', fornecedor? } */
 function comprar_(b) {
@@ -490,7 +538,8 @@ function comprar_(b) {
   const n = alterarLinhas_((l, c) => {
     const it = porLinha[String(l[c['ID Linha']])]; if (!it) return false;
     l[c['Status']] = 'Comprado'; l[c['Atualizado em']] = new Date(); l[c['Data Compra']] = data;
-    const q = lerNumero_(it.qtd); l[c['Qtd Comprada']] = q === null ? l[c['Qtd']] : q;
+    const q = lerNumero_(it.qtd), jaTinha = l[c['Qtd Comprada']] !== '' && l[c['Qtd Comprada']] != null;
+    l[c['Qtd Comprada']] = q !== null ? q : (jaTinha ? l[c['Qtd Comprada']] : l[c['Qtd']]);   // vazio = qtd do pedido ao fornecedor (ou a pedida)
     const pr = lerNumero_(it.preco); if (pr !== null) l[c['Preço Unit.']] = pr;
     if (forn) l[c['Fornecedor']] = forn;
     return true;
