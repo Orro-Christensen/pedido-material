@@ -264,6 +264,20 @@ function atualizarCompras() {
   Logger.log('Compras atualizado. Linhas "Entregue" convertidas: ' + trocados);
 }
 
+/** Garante que a aba Pedidos tem todas as colunas novas (roda sozinho; não precisa executar à mão). */
+function garantirColunas_() {
+  const cache = CacheService.getScriptCache();
+  if (cache.get('colunas_ok') === String(CAB.PED.length)) return;
+  const sh = planilha_().getSheetByName(ABA.PED);
+  const atual = sh.getRange(1, 1, 1, CAB.PED.length).getValues()[0];
+  if (atual.some((v, i) => String(v) !== CAB.PED[i])) {
+    sh.getRange(1, 1, 1, CAB.PED.length).setValues([CAB.PED])
+      .setFontWeight('bold').setBackground('#2f3b4c').setFontColor('#ffffff');
+    formatarPedidos_(sh);
+  }
+  cache.put('colunas_ok', String(CAB.PED.length), 21600);
+}
+
 /** Para trocar o PIN do painel de compras: altere o valor abaixo e rode esta função. */
 function trocarPin() {
   PropertiesService.getScriptProperties().setProperty('PIN', '1234');
@@ -339,6 +353,7 @@ function doGet(e) {
     if (p.action === 'catalogo') return json_(catalogo_());
     if (p.action === 'pedidos') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
+      garantirColunas_();
       marcarVistos_();                                   // compras abriu o painel = pedidos novos "recebidos"
       const dias = Number(p.dias) || 60, limite = Date.now() - dias * 864e5;
       const recente = l => new Date(l['Atualizado em'] || l['Data']).getTime() >= limite;
@@ -366,6 +381,7 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); } catch (err) { return json_({ erro: 'Requisição inválida' }); }
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  try { garantirColunas_(); } catch (err) { /* segue mesmo assim */ }
   try {
     if (body.action === 'login') { senhaOk_(body.funcionario, body.senha); return json_({ ok: true }); }
     if (body.action === 'meus') return json_(meusPedidos_(body));
