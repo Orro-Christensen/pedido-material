@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Compras O&amp;C">
 <meta name="application-name" content="Compras O&amp;C">
-<link rel="stylesheet" href="../estilo.css?v=18">
+<link rel="stylesheet" href="../estilo.css?v=19">
 <style>
   body { font-size: 16px; }
   main { max-width: 1100px; padding-bottom: 110px; }
@@ -38,7 +38,7 @@
   .barra-acao .max { max-width: 1100px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .barra-acao b { flex: 1; min-width: 160px; }
   .barra-acao button { border-radius: 12px; padding: 12px 18px; font-weight: 800; color: #fff; font-size: 17px; }
-  .b-comprar { background: var(--comprado); } .b-cancelar { background: var(--cancelado); } .b-novo { background: #b08900; }
+  .b-comprar { background: var(--comprado); } .b-pf { background: #7b3fb5; } .b-cancelar { background: var(--cancelado); } .b-novo { background: #b08900; }
   .modal.largo { max-width: 760px; }
   .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .campos label, .tab-itens label { font-weight: 700; font-size: 14px; display: block; margin-bottom: 4px; }
@@ -89,9 +89,9 @@
 <div id="modal"></div>
 
 <script src="../lib/qrcode.js"></script>
-<script src="../config.js?v=18"></script>
-<script src="../demo.js?v=18"></script>
-<script src="../comum.js?v=18"></script>
+<script src="../config.js?v=19"></script>
+<script src="../demo.js?v=19"></script>
+<script src="../comum.js?v=19"></script>
 <script>
 const { ls, get, post, esc, dataBR, qtdBR } = App;
 const $ = s => document.querySelector(s);
@@ -232,11 +232,12 @@ async function carregar(primeira, manual) {
 // ---------- abas ----------
 function desenhar() {
   const cont = s => linhas.filter(l => l.status === s).length;
-  const abas = [['Novo', `Novos (${cont('Novo')})`], ['Comprado', 'Comprados'], ['Cancelado', 'Cancelados'],
+  const nPF = new Set(linhas.filter(l => l.status === 'Pedido ao fornecedor').map(l => l.pedFornecedor)).size;
+  const abas = [['Novo', `Novos (${cont('Novo')})`], ['NoFornecedor', `📨 No fornecedor (${nPF})`], ['Comprado', 'Comprados'], ['Cancelado', 'Cancelados'],
                 ['Lista', '🧾 Lista de compra'], ['Relatorio', '📈 Relatório'], ['Fornecedores', '🏪 Fornecedores']];
   tela.innerHTML = `<div class="abas">${abas.map(([k, t]) => `<button data-a="${k}" class="${aba === k ? 'on' : ''}">${t}</button>`).join('')}</div><div id="corpo"></div>`;
   tela.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { aba = b.dataset.a; marcados.clear(); desenhar(); });
-  ({ Novo: desenharNovos, Comprado: desenharComprados, Cancelado: desenharCancelados, Lista: desenharLista, Relatorio: desenharRelatorio, Fornecedores: desenharFornecedores })[aba]();
+  ({ Novo: desenharNovos, NoFornecedor: desenharNoFornecedor, Comprado: desenharComprados, Cancelado: desenharCancelados, Lista: desenharLista, Relatorio: desenharRelatorio, Fornecedores: desenharFornecedores })[aba]();
   desenharBarra();
 }
 
@@ -271,32 +272,143 @@ function desenharNovos() {
 }
 
 function desenharBarra() {
-  if (aba !== 'Novo' || !marcados.size) { $('#barra').innerHTML = ''; return; }
-  $('#barra').innerHTML = `<div class="barra-acao"><div class="max"><b>${marcados.size} ${marcados.size === 1 ? 'item selecionado' : 'itens selecionados'}</b>
-    <button class="b-cancelar" id="bCanc">✕ Cancelar</button><button class="b-comprar" id="bComp">✓ Marcar como comprado</button></div></div>`;
+  if (!['Novo', 'NoFornecedor'].includes(aba) || !marcados.size) { $('#barra').innerHTML = ''; return; }
+  const qtd = `<b>${marcados.size} ${marcados.size === 1 ? 'item selecionado' : 'itens selecionados'}</b>`;
+  $('#barra').innerHTML = aba === 'Novo'
+    ? `<div class="barra-acao"><div class="max">${qtd}
+        <button class="b-cancelar" id="bCanc">✕ Cancelar</button>
+        <button class="b-pf" id="bPF">📨 Pedido ao fornecedor</button>
+        <button class="b-comprar" id="bComp">✓ Comprado</button></div></div>`
+    : `<div class="barra-acao"><div class="max">${qtd}
+        <button class="b-novo" id="bVolta">↩ Voltar p/ novo</button>
+        <button class="b-comprar" id="bComp">✓ Marcar como comprado</button></div></div>`;
   $('#bComp').onclick = abrirCompra;
-  $('#bCanc').onclick = () => { if (confirm(`Cancelar ${marcados.size} ${marcados.size === 1 ? 'item' : 'itens'}?`)) mudarStatus('Cancelado', [...marcados], $('#bCanc')); };
+  if ($('#bPF')) $('#bPF').onclick = abrirPedidoFornecedor;
+  if ($('#bCanc')) $('#bCanc').onclick = () => { if (confirm(`Cancelar ${marcados.size} ${marcados.size === 1 ? 'item' : 'itens'}?`)) mudarStatus('Cancelado', [...marcados], $('#bCanc')); };
+  if ($('#bVolta')) $('#bVolta').onclick = () => { if (confirm('Voltar os itens selecionados para Novo? Eles saem do pedido ao fornecedor.')) mudarStatus('Novo', [...marcados], $('#bVolta')); };
+}
+
+// ---------- pedido ao fornecedor ----------
+function abrirPedidoFornecedor() {
+  const sel = linhas.filter(l => marcados.has(l.linha));
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal largo">
+    <div class="titulo" style="margin-top:0">📨 Pedido ao fornecedor (${sel.length} ${sel.length === 1 ? 'item' : 'itens'})</div>
+    <p class="meta" style="margin-top:-8px">Gera um pedido numerado (PF-0001…) e a mensagem para enviar ao fornecedor. Os itens ficam na aba "No fornecedor" até você marcar como comprado.</p>
+    <div class="campos">
+      <div><label for="pForn">Fornecedor</label><input class="campo peq" id="pForn" list="listaFornPF" placeholder="ex.: Casa do Marceneiro"></div>
+      <div><label for="pData">Data do pedido</label><input class="campo peq" id="pData" type="date" value="${hojeISO()}"></div>
+      <div style="grid-column:1/-1"><label for="pObs">Observação para o fornecedor <span class="opcional">(opcional)</span></label>
+        <input class="campo peq" id="pObs" placeholder="ex.: entregar até sexta; faturar 28 dias"></div>
+    </div>
+    <datalist id="listaFornPF">${fornecedores.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
+    <div class="tab-itens"><table><thead><tr><th>Item</th><th class="n">Pedido</th><th>Qtd a pedir</th><th>Preço estimado (R$)</th></tr></thead><tbody>
+      ${sel.map(l => `<tr><td><b>${esc(l.item)}</b> <span class="meta">${esc(l.espec)}</span><br><span class="meta">Nº ${esc(l.pedido)} · ${esc(l.funcionario)}${l.obs ? ' · Obs.: ' + esc(l.obs) : ''}</span></td>
+        <td class="n">${qtdBR(l.qtd)} ${esc(l.unidade)}</td>
+        <td><input class="campo peq" data-q="${esc(l.linha)}" inputmode="decimal" placeholder="${qtdBR(l.qtd)}"></td>
+        <td><input class="campo peq" data-pr="${esc(l.linha)}" inputmode="decimal" placeholder="opcional"></td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="meta">Qtd em branco = mesma quantidade pedida pela produção.</p>
+    <div class="pilha"><button class="btn btn-ok" id="pOk">📨 Gerar pedido ao fornecedor</button><button class="btn btn-claro" id="pX">Voltar</button></div></div></div>`;
+  $('#pX').onclick = fechar;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
+  $('#pOk').onclick = async () => {
+    const b = $('#pOk'); b.disabled = true; b.textContent = 'Gerando…';
+    const itens = sel.map(l => ({ linha: l.linha, qtd: $(`[data-q="${l.linha}"]`).value, preco: $(`[data-pr="${l.linha}"]`).value }));
+    const data = $('#pData').value || hojeISO(), fornecedor = $('#pForn').value.trim(), obs = $('#pObs').value.trim();
+    try {
+      const r = await post({ action: 'pedirFornecedor', pin, data, fornecedor, itens });
+      sel.forEach(l => { const it = itens.find(i => i.linha === l.linha);
+        Object.assign(l, { status: 'Pedido ao fornecedor', pedFornecedor: r.pedidoFornecedor, dataPedFornecedor: data,
+          qtdComprada: lerNum(it.qtd) ?? l.qtd, preco: lerNum(it.preco) ?? l.preco, fornecedor: fornecedor || l.fornecedor,
+          vistoEm: l.vistoEm || new Date().toISOString() }); });
+      if (fornecedor && !fornecedores.includes(fornecedor)) fornecedores.push(fornecedor);
+      marcados.clear(); aba = 'NoFornecedor'; desenhar();
+      mostrarMensagemPF(r.pedidoFornecedor, obs);
+    } catch (e) { b.disabled = false; b.textContent = '📨 Gerar pedido ao fornecedor'; aviso('Erro: ' + e.message, true); }
+  };
+  setTimeout(() => $('#pForn').focus(), 50);
+}
+
+function textoPF(num, obs) {
+  const ls = linhas.filter(l => l.pedFornecedor === num);
+  if (!ls.length) return '';
+  const somado = {};
+  ls.forEach(l => { const k = l.codigo === 'OUTRO' ? 'O|' + l.item + '|' + l.unidade : l.codigo;
+    const s = somado[k] ||= { item: l.item, espec: l.espec, unidade: l.unidade, qtd: 0 }; s.qtd += Number(l.qtdComprada ?? l.qtd) || 0; });
+  return `Pedido Orro & Christensen — ${num} (${isoBR(ls[0].dataPedFornecedor) || new Date().toLocaleDateString('pt-BR')})\n\n` +
+    Object.values(somado).map(s => `• ${qtdBR(s.qtd)} ${s.unidade} — ${s.item}${s.espec ? ' ' + s.espec : ''}`).join('\n') +
+    (obs ? `\n\nObs.: ${obs}` : '') + '\n\nPor favor, confirme prazo de entrega e valor. Obrigado!';
+}
+
+function mostrarMensagemPF(num, obs) {
+  const ls = linhas.filter(l => l.pedFornecedor === num);
+  const forn = ls[0]?.fornecedor || '';
+  const cad = cadastro.find(f => f.nome.toLowerCase() === forn.toLowerCase());
+  let tel = String(cad?.telefone || '').replace(/\D/g, ''); if (tel.length >= 10 && tel.length <= 11) tel = '55' + tel;
+  const texto = textoPF(num, obs);
+  $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal largo">
+    <div class="titulo" style="margin-top:0">📨 ${esc(num)}${forn ? ' — ' + esc(forn) : ''}</div>
+    <p class="meta" style="margin-top:-8px">Mensagem pronta para o fornecedor. Os itens estão na aba "No fornecedor".</p>
+    <textarea class="campo" id="mTxt" rows="9" style="font-size:15px">${esc(texto)}</textarea>
+    <div class="pilha" style="margin-top:12px">
+      <a class="btn btn-acento" style="text-decoration:none" id="mZap" target="_blank" rel="noopener">📱 Enviar pelo WhatsApp${tel ? ' para ' + esc(cad.nome) : ''}</a>
+      <button class="btn btn-ok" id="mCop">📋 Copiar mensagem</button>
+      <button class="btn btn-claro" id="mX">Fechar</button></div>
+    ${tel ? '' : '<p class="meta">Dica: cadastre o telefone do fornecedor (aba 🏪 Fornecedores) para o WhatsApp já abrir na conversa dele.</p>'}</div></div>`;
+  const atualizaZap = () => $('#mZap').href = (tel ? `https://wa.me/${tel}?text=` : 'https://wa.me/?text=') + encodeURIComponent($('#mTxt').value);
+  $('#mTxt').oninput = atualizaZap; atualizaZap();
+  $('#mCop').onclick = () => copiar($('#mTxt').value, 'Mensagem copiada');
+  $('#mX').onclick = fechar;
+  $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
+}
+
+function desenharNoFornecedor() {
+  const abertos = linhas.filter(l => l.status === 'Pedido ao fornecedor');
+  const g = {}; abertos.forEach(l => (g[l.pedFornecedor] ||= []).push(l));
+  const nums = Object.keys(g).sort();
+  const hist = {}; linhas.filter(l => l.pedFornecedor).forEach(l => (hist[l.pedFornecedor] ||= []).push(l));
+  const numsHist = Object.keys(hist).sort().reverse();
+  $('#corpo').innerHTML = (nums.length ? nums.map(n => {
+      const ls = g[n], tudo = ls.every(l => marcados.has(l.linha));
+      return `<div class="grupo"><div class="cab-grupo"><label><input type="checkbox" data-pf="${esc(n)}" ${tudo ? 'checked' : ''}>
+          <b>${esc(n)} — ${esc(ls[0].fornecedor || 'sem fornecedor')}</b></label>
+          <span class="meta">${isoBR(ls[0].dataPedFornecedor)} <button class="btn-p" data-msg="${esc(n)}">📱 Mensagem</button></span></div>
+        <ul>${ls.map(l => `<li><label><input type="checkbox" data-l="${esc(l.linha)}" ${marcados.has(l.linha) ? 'checked' : ''}>
+          <span><b>${qtdBR(l.qtdComprada ?? l.qtd)} ${esc(l.unidade)}</b> — ${esc(l.item)} <span class="meta">${esc(l.espec)}</span>
+          <br><span class="meta">Nº ${esc(l.pedido)} · ${esc(l.funcionario)}${l.preco != null ? ' · est. ' + moeda(l.preco) : ''}</span></span></label></li>`).join('')}</ul></div>`;
+    }).join('') : '<div class="vazio">Nenhum pedido aguardando fornecedor.</div>') +
+    (numsHist.length ? `<div class="titulo" style="font-size:18px;margin-top:24px">Histórico de pedidos a fornecedores <span class="meta">(últimos 60 dias)</span></div>
+      <table class="hist"><thead><tr><th>Pedido</th><th>Fornecedor</th><th>Situação</th><th></th></tr></thead><tbody>
+      ${numsHist.map(n => { const ls = hist[n], c = ls.filter(l => l.status === 'Comprado').length, a = ls.filter(l => l.status === 'Pedido ao fornecedor').length;
+        const sit = a ? `${a} aguardando${c ? ' · ' + c + ' comprado(s)' : ''}` : (c ? 'Comprado' : ls[0].status);
+        return `<tr><td><b style="white-space:nowrap">${esc(n)}</b><br><span class="meta">${isoBR(ls[0].dataPedFornecedor)}</span></td><td>${esc(ls[0].fornecedor) || '—'}</td>
+          <td>${ls.length} ${ls.length > 1 ? 'itens' : 'item'}<br><span class="meta">${esc(sit)}</span></td><td><button class="lapis" data-msg="${esc(n)}" title="Ver/reenviar mensagem">📱</button></td></tr>`; }).join('')}</tbody></table>` : '');
+  $('#corpo').querySelectorAll('[data-pf]').forEach(c => c.onchange = () => {
+    g[c.dataset.pf].forEach(l => c.checked ? marcados.add(l.linha) : marcados.delete(l.linha)); desenhar(); });
+  $('#corpo').querySelectorAll('[data-l]').forEach(c => c.onchange = () => { c.checked ? marcados.add(c.dataset.l) : marcados.delete(c.dataset.l); desenhar(); });
+  $('#corpo').querySelectorAll('[data-msg]').forEach(b => b.onclick = () => mostrarMensagemPF(b.dataset.msg, ''));
 }
 
 // ---------- registrar compra (tudo opcional) ----------
 function abrirCompra() {
   const sel = linhas.filter(l => marcados.has(l.linha));
+  const fs = [...new Set(sel.map(l => l.fornecedor).filter(Boolean))];
   $('#modal').innerHTML = `<div class="fundo-modal" id="fm"><div class="modal largo">
     <div class="titulo" style="margin-top:0">Marcar ${sel.length} ${sel.length === 1 ? 'item' : 'itens'} como comprado</div>
     <p class="meta" style="margin-top:-8px">Todos os campos são opcionais — preencha o que tiver; dá para completar depois na aba Comprados.</p>
     <div class="campos">
       <div><label for="cData">Data da compra</label><input class="campo peq" id="cData" type="date" value="${hojeISO()}"></div>
       <div><label for="cForn">Fornecedor <span class="opcional">(opcional)</span></label>
-        <input class="campo peq" id="cForn" list="listaForn" placeholder="ex.: Casa do Marceneiro"></div>
+        <input class="campo peq" id="cForn" list="listaForn" placeholder="ex.: Casa do Marceneiro" value="${fs.length === 1 ? esc(fs[0]) : ''}"></div>
     </div>
     <datalist id="listaForn">${fornecedores.map(f => `<option value="${esc(f)}">`).join('')}</datalist>
     <div class="tab-itens"><table><thead><tr><th>Item</th><th class="n">Pedido</th><th>Qtd comprada</th><th>Preço unit. (R$)</th></tr></thead><tbody>
       ${sel.map(l => `<tr><td><b>${esc(l.item)}</b> <span class="meta">${esc(l.espec)}</span><br><span class="meta">Nº ${esc(l.pedido)} · ${esc(l.funcionario)}</span></td>
         <td class="n">${qtdBR(l.qtd)} ${esc(l.unidade)}</td>
-        <td><input class="campo peq" data-q="${esc(l.linha)}" inputmode="decimal" placeholder="${qtdBR(l.qtd)}"></td>
-        <td><input class="campo peq" data-pr="${esc(l.linha)}" inputmode="decimal" placeholder="opcional"></td></tr>`).join('')}
+        <td><input class="campo peq" data-q="${esc(l.linha)}" inputmode="decimal" placeholder="${qtdBR(l.qtdComprada ?? l.qtd)}"></td>
+        <td><input class="campo peq" data-pr="${esc(l.linha)}" inputmode="decimal" placeholder="opcional" value="${l.preco != null ? esc(numBR(l.preco)) : ''}"></td></tr>`).join('')}
     </tbody></table></div>
-    <p class="meta">Qtd comprada em branco = mesma quantidade pedida.</p>
+    <p class="meta">Qtd em branco = a do pedido ao fornecedor (ou a pedida pela produção).</p>
     <div class="pilha"><button class="btn btn-ok" id="cOk">✓ Confirmar compra</button><button class="btn btn-claro" id="cX">Voltar</button></div></div></div>`;
   $('#cX').onclick = fechar;
   $('#fm').onclick = e => { if (e.target.id === 'fm') fechar(); };
@@ -307,7 +419,7 @@ function abrirCompra() {
     try {
       await post({ action: 'comprar', pin, data, fornecedor, itens });
       sel.forEach(l => { const it = itens.find(i => i.linha === l.linha);
-        Object.assign(l, { status: 'Comprado', dataCompra: data || hojeISO(), qtdComprada: lerNum(it.qtd) ?? l.qtd,
+        Object.assign(l, { status: 'Comprado', dataCompra: data || hojeISO(), qtdComprada: lerNum(it.qtd) ?? l.qtdComprada ?? l.qtd,
           preco: lerNum(it.preco) ?? l.preco, fornecedor: fornecedor || l.fornecedor }); });
       if (fornecedor && !fornecedores.includes(fornecedor)) fornecedores.push(fornecedor);
       marcados.clear(); fechar(); desenhar(); aviso(`${sel.length} ${sel.length === 1 ? 'item marcado' : 'itens marcados'} como comprado`);

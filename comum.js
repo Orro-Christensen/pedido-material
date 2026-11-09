@@ -35,6 +35,7 @@
     if (p.action === 'pedidos' || p.action === 'relatorio') {
       if (p.pin !== '1234') return Promise.reject(new Error('PIN inválido'));
       if (p.action === 'relatorio') return Promise.resolve({ linhas: linhas.filter(l => l.status === 'Comprado' && l.dataCompra >= p.de && l.dataCompra <= p.ate) });
+      linhas.forEach(l => { if (l.status === 'Novo' && !l.vistoEm) l.vistoEm = new Date().toISOString(); }); ls.set('demo_pedidos', linhas);
       const cad = ls.get('demo_forn', []);
       return Promise.resolve({ linhas, cadastro: cad, fornecedores: [...new Set(cad.filter(f => f.ativo).map(f => f.nome).concat(linhas.map(l => l.fornecedor).filter(Boolean)))] });
     }
@@ -61,15 +62,24 @@
       ls.set('demo_pedidos', linhas);
       return new Promise(r => setTimeout(() => r({ ok: true, pedido: num }), 500));
     }
-    const num = x => { x = String(x ?? '').trim(); if (!x) return null; const n = Number(x.includes(',') ? x.replace(/\./g, '').replace(',', '.') : x); return isFinite(n) ? n : null; };
+    const num_ = x => { x = String(x ?? '').trim(); if (!x) return null; const n = Number(x.includes(',') ? x.replace(/\./g, '').replace(',', '.') : x); return isFinite(n) ? n : null; };
+    if (b.action === 'pedirFornecedor') {
+      if (b.pin !== '1234') return Promise.reject(new Error('PIN inválido'));
+      const seq = ls.get('demo_pf', 0) + 1; ls.set('demo_pf', seq); const num = 'PF-' + String(seq).padStart(4, '0');
+      linhas.forEach(l => { const it = (b.itens || []).find(i => i.linha === l.linha); if (!it) return;
+        Object.assign(l, { status: 'Pedido ao fornecedor', pedFornecedor: num, dataPedFornecedor: b.data || new Date().toISOString().slice(0, 10),
+          qtdComprada: num_(it.qtd) ?? l.qtd, preco: num_(it.preco) ?? l.preco ?? null, fornecedor: b.fornecedor || l.fornecedor || '',
+          vistoEm: l.vistoEm || new Date().toISOString() }); });
+      ls.set('demo_pedidos', linhas); return Promise.resolve({ ok: true, pedidoFornecedor: num });
+    }
     if (b.action === 'comprar' || b.action === 'editarCompra') {
       if (b.pin !== '1234') return Promise.reject(new Error('PIN inválido'));
       const hoje = new Date().toISOString().slice(0, 10);
       linhas.forEach(l => {
         if (b.action === 'comprar') { const it = (b.itens || []).find(i => i.linha === l.linha); if (!it) return;
-          Object.assign(l, { status: 'Comprado', dataCompra: b.data || hoje, qtdComprada: num(it.qtd) ?? l.qtd,
-            preco: num(it.preco) ?? l.preco ?? null, fornecedor: b.fornecedor || l.fornecedor || '' }); }
-        else if (l.linha === b.linha) Object.assign(l, { dataCompra: b.data || '', qtdComprada: num(b.qtd), preco: num(b.preco), fornecedor: b.fornecedor || '' });
+          Object.assign(l, { status: 'Comprado', dataCompra: b.data || hoje, qtdComprada: num_(it.qtd) ?? l.qtdComprada ?? l.qtd,
+            preco: num_(it.preco) ?? l.preco ?? null, fornecedor: b.fornecedor || l.fornecedor || '' }); }
+        else if (l.linha === b.linha) Object.assign(l, { dataCompra: b.data || '', qtdComprada: num_(b.qtd), preco: num_(b.preco), fornecedor: b.fornecedor || '' });
       });
       ls.set('demo_pedidos', linhas); return Promise.resolve({ ok: true });
     }

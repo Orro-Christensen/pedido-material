@@ -113,3 +113,8 @@ main { position: relative; z-index: 1; }
 
 .passos { margin: 10px 0 14px; padding-left: 22px; } .passos li { margin-bottom: 8px; }
 .meta { color: var(--suave); font-size: 14px; }
+
+.st-Recebido { background: #0e7c86; } .st-PF { background: #7b3fb5; }
+.novidades { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; background: #fff7d6; border: 2px solid #f4c430;
+  border-radius: var(--raio); padding: 12px 14px; margin-bottom: 14px; font-size: 16px; color: var(--texto); }
+.novidades .ver { color: var(--suave); font-size: 14px; margin-top: 4px; }

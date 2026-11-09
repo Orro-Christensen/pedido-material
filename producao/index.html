@@ -12,7 +12,7 @@
 <link rel="icon" href="../img/favicon.png">
 <link rel="apple-touch-icon" href="../img/icone-180.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="../estilo.css?v=17">
+<link rel="stylesheet" href="../estilo.css?v=19">
 </head>
 <body>
 <div class="marca"><img src="../img/logo.png" alt="Orro &amp; Christensen"></div>
@@ -26,9 +26,9 @@
 <div class="barra-pedido" id="barra" hidden><div class="max"><button class="btn btn-ok" id="btnCarrinho"></button></div></div>
 <div id="modal"></div>
 
-<script src="../config.js?v=17"></script>
-<script src="../demo.js?v=17"></script>
-<script src="../comum.js?v=17"></script>
+<script src="../config.js?v=19"></script>
+<script src="../demo.js?v=19"></script>
+<script src="../comum.js?v=19"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
@@ -117,7 +117,7 @@ function telaSenha() {
     try {
       await post({ action: 'login', funcionario: estado.n, senha: dig });
       sessao = { pessoa: estado.n, senha: dig, ate: Date.now() + DURACAO_SESSAO }; ls.set('sessao', sessao);
-      pessoa = estado.n; ir({ v: 'inicio' }, true);
+      pessoa = estado.n; novidades = []; ir({ v: 'inicio' }, true); checarNovidades();
     } catch (e) {
       ocupado = false; dig = ''; pts();
       $('#smsg').textContent = e.message; $('#pontos').classList.add('treme');
@@ -131,9 +131,10 @@ function telaInicio() {
   const usadas = new Set(cat.itens.map(i => i.categoria));
   const cats = cat.categorias.filter(c => usadas.has(c.nome));
   cat.itens.forEach(i => { if (!cats.find(c => c.nome === i.categoria)) cats.push({ nome: i.categoria, foto: i.foto }); });
-  tela.innerHTML = `
+  tela.innerHTML = `<div id="novidades"></div>
     <input class="busca" id="busca" type="search" placeholder="🔍 Procurar (ex.: parafuso, lixa)" value="${esc(busca)}">
     <div id="resultado"></div>`;
+  desenharNovidades();
   const desenharResultado = () => {
     const q = normal(busca);
     if (q) {
@@ -314,12 +315,48 @@ function telaEnviado() {
   $('#meus').onclick = () => ir({ v: 'meus' });
 }
 
+// ---------- situação dos pedidos para o funcionário ----------
+function rotuloStatus(l) {
+  if (l.status === 'Novo') return l.vistoEm ? { t: '👀 Recebido pelas compras', c: 'st-Recebido' } : { t: '📤 Enviado', c: 'st-Novo' };
+  if (l.status === 'Pedido ao fornecedor') return { t: '📨 Pedido ao fornecedor', c: 'st-PF' };
+  if (l.status === 'Comprado') return { t: '✓ Comprado', c: 'st-Comprado' };
+  if (l.status === 'Cancelado') return { t: '✕ Cancelado', c: 'st-Cancelado' };
+  return { t: l.status, c: '' };
+}
+// Novidades: compara a situação atual com a última que o funcionário viu (guardada no aparelho)
+let novidades = [];
+const chaveVistos = () => 'vistos_' + pessoa;
+async function checarNovidades() {
+  if (!pessoa || !sessao) return;
+  try {
+    const { linhas } = await post({ action: 'meus', funcionario: pessoa, senha: sessao.senha });
+    const antes = ls.get(chaveVistos(), null), agora = {};
+    linhas.forEach(l => agora[l.linha] = rotuloStatus(l).t);
+    if (!antes) { ls.set(chaveVistos(), agora); return; }            // primeira vez neste aparelho: só registra
+    novidades = linhas.filter(l => antes[l.linha] !== agora[l.linha] && !(antes[l.linha] === undefined && l.status === 'Novo' && !l.vistoEm))
+      .map(l => ({ pedido: l.pedido, item: l.item, rotulo: rotuloStatus(l) }));
+    if (estado.v === 'inicio') desenharNovidades();
+  } catch (e) { /* sem internet ou senha vencida: tenta de novo depois */ }
+}
+function desenharNovidades() {
+  const d = $('#novidades'); if (!d) return;
+  if (!novidades.length) { d.innerHTML = ''; return; }
+  d.innerHTML = `<button class="novidades" id="btnNovidades"><b>🔔 Novidades nos seus pedidos</b>
+    ${novidades.slice(0, 4).map(n => `<span>Nº ${esc(n.pedido)} — ${esc(n.item)}: <b>${esc(n.rotulo.t)}</b></span>`).join('')}
+    ${novidades.length > 4 ? `<span>e mais ${novidades.length - 4}…</span>` : ''}<span class="ver">Toque para ver seus pedidos ›</span></button>`;
+  $('#btnNovidades').onclick = () => ir({ v: 'meus' });
+}
+setInterval(() => { if (!document.hidden) checarNovidades(); }, 120000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checarNovidades(); });
+
 async function telaMeus() {
   $('#titulo').textContent = 'Meus pedidos';
   tela.innerHTML = '<div class="carregando">Buscando seus pedidos…</div>';
   try {
     const { linhas } = await post({ action: 'meus', funcionario: pessoa, senha: sessao.senha });
     if (estado.v !== 'meus') return;
+    const vistos = {}; linhas.forEach(l => vistos[l.linha] = rotuloStatus(l).t);
+    ls.set(chaveVistos(), vistos); novidades = [];                    // viu a lista: novidades lidas
     const grupos = {}; linhas.forEach(l => (grupos[l.pedido] ||= []).push(l));
     const nums = Object.keys(grupos).sort().reverse();
     tela.innerHTML = nums.length ? `<div class="titulo">Últimos 30 dias</div>` + nums.map(n => {
@@ -327,7 +364,7 @@ async function telaMeus() {
       return `<div class="grupo"><div class="cab-grupo"><b>Pedido nº ${esc(n)}</b>
         <span style="color:var(--suave)">${dataBR(g[0].data)} ${g[0].urgente ? '<span class="urg">URGENTE</span>' : ''}</span></div>
         <ul>${g.map(l => `<li><span>${qtdBR(l.qtd)} ${esc(l.unidade)} — <b>${esc(l.item)}</b> ${esc(l.espec)}</span>
-          <span class="status st-${esc(l.status)}">${esc(l.status)}</span></li>`).join('')}</ul></div>`;
+          <span class="status ${rotuloStatus(l).c}">${esc(rotuloStatus(l).t)}</span></li>`).join('')}</ul></div>`;
     }).join('') : '<div class="vazio">Você ainda não fez pedidos.</div>';
   } catch (e) {
     if (e.senha) { const n = pessoa; sair(e.message); ir({ v: 'senha', n }, true); return; }
@@ -343,6 +380,7 @@ get({ action: 'catalogo' }).then(c => {
   if (pessoa && !c.funcionarios.includes(pessoa)) sair();
   carrinho.itens = carrinho.itens.filter(x => x.id.startsWith('OUTRO-') || itemPorId(x.id)); salvarCarrinho();
   if (!$('#modal').innerHTML) desenhar();
+  checarNovidades();
 }).catch(e => { if (!cat) tela.innerHTML = `<div class="vazio">Sem conexão com o servidor.<br>${esc(e.message)}</div>`; else aviso('Sem conexão — usando catálogo salvo', true); });
 </script>
 </body>
