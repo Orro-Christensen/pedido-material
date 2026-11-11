@@ -693,3 +693,48 @@ function pinOk_(pin) {
 function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
+
+// ---------- Atualização dos EPIs (nov/2026) ----------
+// Atualiza nome, especificação, unidade e foto dos EPIs existentes e inclui os novos.
+// Não mexe na coluna Ativo dos itens que já existem. Pode rodar mais de uma vez.
+function atualizarEPIs() {
+  const OBR = 'O uso de EPI é obrigatório! Colabore';
+  const CAT = 'EPI e Uniformes';
+  const lista = [
+    ['EPI-001', 'Luva nitrílica reutilizável', 'Para tintas, solventes e colas. Informe o tamanho', 'par', 'LuvaCA.webp'],
+    ['EPI-002', 'Óculos de proteção incolor', OBR, 'un', 'Oculos_protecao.jpeg'],
+    ['EPI-003', 'Protetor auricular tipo concha', OBR, 'un', 'Protetor_concha.jpeg'],
+    ['EPI-004', 'Protetor auricular tipo plug', OBR, 'par', 'Protetor_plug.webp'],
+    ['EPI-005', 'Protetor facial (face shield)', 'Para serra, tupia, lixadeira e CNC. ' + OBR, 'un', 'protetor-facial-betaface-shield.webp'],
+    ['EPI-006', 'Respirador PFF2', 'Para pó de madeira e lixamento. ' + OBR, 'un', 'Mascara_PFF2.jpeg'],
+    ['EPI-007', 'Respirador semifacial com filtro químico', 'Para pintura e cola de contato. ' + OBR, 'un', 'mascara-respirador-facial-2-filtros.webp'],
+    ['EPI-008', 'Botina de segurança com biqueira', 'Informe o número do calçado', 'par', 'Sapato_seguranca.jpeg'],
+    ['EPI-011', 'Luva de algodão', OBR, 'par', 'Luva_Algodao.webp'],
+    ['EPI-012', 'Creme protetor para as mãos', 'Luva química. Passar antes de pintar ou colar', 'un', 'Luva_creme.webp'],
+    ['EPI-013', 'Luva de vaqueta ou anticorte', 'Para manuseio de chapas e carga. Não usar em máquina rotativa. Informe o tamanho', 'par', 'Luva_vaqueta.webp'],
+    ['EPI-014', 'Luva nitrílica descartável', 'Caixa com 100. Para colagem e acabamento', 'cx', 'Luva_nitrilica_descartavel.webp'],
+    ['EPI-015', 'Cartucho químico para vapores orgânicos', 'Para o respirador semifacial (EPI-007)', 'par', 'Cartucho_VO.webp'],
+    ['EPI-016', 'Pré-filtro P2 com retentor', 'Para o respirador semifacial (EPI-007)', 'par', 'Prefiltro_P2.webp'],
+    ['EPI-017', 'Macacão descartável para pintura', 'Com capuz. Informe o tamanho', 'un', 'Macacao_pintura.webp'],
+    ['EPI-018', 'Viseira de reposição para protetor facial', 'Para o protetor facial (EPI-005)', 'un', 'Viseira_reposicao.webp'],
+  ];
+  const sh = planilha_().getSheetByName(ABA.ITENS);
+  const v = sh.getDataRange().getValues();
+  const cab = v[0].map(String);
+  const col = n => cab.indexOf(n);
+  const linhaDe = {};
+  v.forEach((l, i) => { if (i > 0 && l[col('Código')]) linhaDe[String(l[col('Código')]).trim()] = i + 1; });
+  let alterados = 0, novos = 0;
+  lista.forEach(([cod, item, espec, un, foto]) => {
+    const valores = { 'Item': item, 'Especificação': espec, 'Unidade': un, 'Foto': foto };
+    if (linhaDe[cod]) {
+      Object.keys(valores).forEach(k => sh.getRange(linhaDe[cod], col(k) + 1).setValue(valores[k]));
+      alterados++;
+    } else {
+      const nova = cab.map(c => ({ 'Código': cod, 'Ativo': 'SIM', 'Categoria': CAT }[c] ?? valores[c] ?? ''));
+      sh.appendRow(nova);
+      novos++;
+    }
+  });
+  Logger.log('EPIs atualizados: ' + alterados + ' alterados, ' + novos + ' novos.');
+}
