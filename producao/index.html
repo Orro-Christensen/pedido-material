@@ -28,7 +28,7 @@
 
 <script src="../config.js?v=19"></script>
 <script src="../demo.js?v=19"></script>
-<script src="../comum.js?v=20"></script>
+<script src="../comum.js?v=21"></script>
 <script>
 const { ls, get, post, foto, fotos, esc, dataBR, qtdBR, uid } = App;
 const $ = s => document.querySelector(s);
@@ -92,16 +92,23 @@ function horarioAberto() {
   const p = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
     .formatToParts(new Date()).forEach(x => p[x.type] = x.value);
   const dia = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(p.weekday) + 1, hm = p.hour.replace('24', '00') + ':' + p.minute;
-  return h.dias.includes(dia) && h.faixas.some(([a, b]) => hm >= a && hm < b);
+  const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());   // aaaa-mm-dd
+  if (h.feriados && h.feriados[iso]) return false;
+  const faixas = h.vigencias ? h.vigencias.filter(v => v.desde <= iso).pop().faixas : h.faixas;
+  return h.dias.includes(dia) && faixas.some(([a, b]) => hm >= a && hm < b);
 }
 const podeUsar = nome => horarioAberto() || ((cat && cat.horario && cat.horario.livres) || []).includes(nome);
 let ultimoAberto = null;
 setInterval(() => { const a = horarioAberto(); if (ultimoAberto !== null && a !== ultimoAberto && !$('#modal').innerHTML) desenhar(); ultimoAberto = a; }, 30000);
 
+function feriadoHoje() {
+  const h = cat && cat.horario; if (!h || !h.feriados) return '';
+  return h.feriados[new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())] || '';
+}
 function telaFechado() {
   $('#titulo').textContent = 'Pede Aí fechado';
   tela.innerHTML = `<div class="fechado"><div class="fechado-ic">⏰</div>
-    <div class="fechado-tit">O Pede Aí está fechado agora</div>
+    <div class="fechado-tit">O Pede Aí está fechado ${feriadoHoje() ? 'hoje: ' + esc(feriadoHoje()) : 'agora'}</div>
     <p>${esc(cat.horario.texto)}</p>
     <p class="meta">${carrinho.itens.length ? 'Seu pedido em andamento fica guardado neste celular.' : ''}</p>
     <div class="links"><button class="btn btn-claro" id="btnTrocarPessoa">Sair</button></div></div>`;
@@ -111,11 +118,11 @@ function telaFechado() {
 function telaQuem() {
   $('#titulo').textContent = 'Quem está pedindo?';
   if (!cat.funcionarios.length) { tela.innerHTML = '<div class="vazio">Nenhum funcionário cadastrado na planilha (aba Funcionarios).</div>'; return; }
-  tela.innerHTML = `${horarioAberto() ? '' : `<div class="fechado-faixa">⏰ Fechado agora. ${esc(cat.horario.texto)}</div>`}<div class="titulo">Toque no seu nome</div><div class="pessoas">${
+  tela.innerHTML = `${horarioAberto() ? '' : `<div class="fechado-faixa">⏰ Fechado ${feriadoHoje() ? 'hoje (' + esc(feriadoHoje()) + ')' : 'agora'}. ${esc(cat.horario.texto)}</div>`}<div class="titulo">Toque no seu nome</div><div class="pessoas">${
     cat.funcionarios.map(n => `<button data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>
     ${App.instalacao.podeMostrar() ? '<div class="links"><button class="btn btn-claro" id="btnInstalar">📲 Instalar o app neste celular</button></div>' : ''}`;
   if ($('#btnInstalar')) $('#btnInstalar').onclick = () => App.instalacao.instalar('Pede Aí O&C');
-  tela.querySelectorAll('[data-n]').forEach(b => b.onclick = () => podeUsar(b.dataset.n) ? ir({ v: 'senha', n: b.dataset.n }) : aviso('⏰ Fechado agora. ' + cat.horario.texto, true));
+  tela.querySelectorAll('[data-n]').forEach(b => b.onclick = () => podeUsar(b.dataset.n) ? ir({ v: 'senha', n: b.dataset.n }) : aviso('⏰ Fechado ' + (feriadoHoje() ? 'hoje (' + feriadoHoje() + ')' : 'agora') + '. ' + cat.horario.texto, true));
 }
 
 function telaSenha() {

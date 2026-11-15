@@ -350,7 +350,7 @@ function lerNumero_(x) {                       // aceita 12,50 ou 12.50; vazio =
 function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
-    if (p.action === 'catalogo') return json_(Object.assign(catalogo_(), { horario: { dias: HORARIO.dias, faixas: HORARIO.faixas, texto: HORARIO.texto, livres: livresHorario_(), aberto: dentroHorario_() } }));
+    if (p.action === 'catalogo') return json_(Object.assign(catalogo_(), { horario: horarioParaApp_() }));
     if (p.action === 'pedidos') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
       garantirColunas_();
@@ -401,24 +401,118 @@ function doPost(e) {
 }
 
 // ---------- Horário do Pede Aí (pedido de material só durante o expediente) ----------
-// Segunda a sexta, das 8h às 12h e das 13h às 17h30 (fechado no almoço). Horário de Brasília.
+// Segunda a sexta, das 8h às 12h e das 13h ao fim do expediente (17h30; 17h a partir de 01/12/2026).
+// Fechado no almoço, nos fins de semana e nos feriados da aba "Feriados" (coluna Bloquear = SIM).
 // Exceções: quem tem SIM na coluna "Fora do horário" da aba Funcionarios pode pedir a qualquer hora.
-const HORARIO = { dias: [1, 2, 3, 4, 5], faixas: [['08:00', '12:00'], ['13:00', '17:30']],
-  texto: 'Pedidos de material: segunda a sexta, das 8h às 12h e das 13h às 17h30.' };
+const HORARIO = {
+  dias: [1, 2, 3, 4, 5],
+  vigencias: [                                        // a última com "desde" <= hoje vale
+    { desde: '2000-01-01', faixas: [['08:00', '12:00'], ['13:00', '17:30']] },
+    { desde: '2026-12-01', faixas: [['08:00', '12:00'], ['13:00', '17:00']] }
+  ]
+};
 const COL_FORA_HORARIO = 'Fora do horário';
+const ABA_FERIADOS = 'Feriados';
+const hojeISO_ = d => Utilities.formatDate(d || new Date(), TZ_, 'yyyy-MM-dd');
+function faixasDe_(iso) { return HORARIO.vigencias.filter(v => v.desde <= iso).pop().faixas; }
+function textoHorario_(iso) {
+  const f = faixasDe_(iso || hojeISO_()), h = x => x.replace(/^0/, '').replace(':00', 'h').replace(':', 'h');
+  return 'Pedidos de material: segunda a sexta (dias úteis), das ' + f.map(([a, b]) => h(a) + ' às ' + h(b)).join(' e das ') + '.';
+}
 function livresHorario_() {
   return tabela_(ABA.FUNC).filter(f => f['Nome'] && ativo_(f['Ativo']) && /^S(IM)?$/i.test(String(f[COL_FORA_HORARIO] ?? '').trim()))
     .map(f => String(f['Nome']).trim());
 }
+/** Feriados que bloqueiam o Pede Aí: { 'aaaa-mm-dd': 'nome' } (lido da aba Feriados, guardado 10 min). */
+function feriados_() {
+  const c = CacheService.getScriptCache(), k = 'feriados_v1', g = c.get(k);
+  if (g) return JSON.parse(g);
+  const sh = planilha_().getSheetByName(ABA_FERIADOS), out = {};
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(([d, nome, , bloq]) => {
+      if (!d || !/^S(IM)?$/i.test(String(bloq).trim())) return;
+      const iso = d instanceof Date ? hojeISO_(d) : String(d).trim().replace(/^(\d{2})\/(\d{2})\/(\d{4})$/, '$3-$2-$1');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) out[iso] = String(nome || 'Feriado');
+    });
+  }
+  c.put(k, JSON.stringify(out), 600);
+  return out;
+}
 function dentroHorario_(d) {
   d = d || new Date();
+  const iso = hojeISO_(d);
+  if (feriados_()[iso]) return false;
   const dia = Number(Utilities.formatDate(d, TZ_, 'u'));          // 1 = segunda ... 7 = domingo
   const hm = Utilities.formatDate(d, TZ_, 'HH:mm');
-  return HORARIO.dias.includes(dia) && HORARIO.faixas.some(([a, b]) => hm >= a && hm < b);
+  return HORARIO.dias.includes(dia) && faixasDe_(iso).some(([a, b]) => hm >= a && hm < b);
+}
+/** O que o app precisa saber para mostrar "aberto/fechado" (o servidor confere de novo em cada pedido). */
+function horarioParaApp_() {
+  const hoje = hojeISO_(), fer = feriados_(), prox = {};
+  Object.keys(fer).filter(x => x >= hoje).sort().slice(0, 40).forEach(x => prox[x] = fer[x]);
+  return { dias: HORARIO.dias, vigencias: HORARIO.vigencias, faixas: faixasDe_(hoje), texto: textoHorario_(hoje),
+    feriados: prox, livres: livresHorario_(), aberto: dentroHorario_() };
 }
 function exigirHorario_(nome) {
   if (dentroHorario_() || livresHorario_().includes(String(nome || '').trim())) return;
-  throw new Error('FECHADO|O Pede Aí está fechado agora. ' + HORARIO.texto);
+  const fer = feriados_()[hojeISO_()];
+  throw new Error('FECHADO|O Pede Aí está fechado ' + (fer ? 'hoje (' + fer + ')' : 'agora') + '. ' + textoHorario_());
+}
+
+// ---------- Feriados (aba "Feriados": Data | Feriado | Tipo | Bloquear) ----------
+function pascoa_(a) {                                 // domingo de Páscoa (algoritmo de Meeus)
+  const b = a % 19, c = Math.floor(a / 100), d = a % 100, e = Math.floor(c / 4), f = c % 4, g = Math.floor((c + 8) / 25),
+    h = Math.floor((c - g + 1) / 3), i = (19 * b + c - e - h + 15) % 30, k = Math.floor(d / 4), l = d % 4,
+    m = (32 + 2 * f + 2 * k - i - l) % 7, n = Math.floor((b + 11 * i + 22 * m) / 451), mes = Math.floor((i + m - 7 * n + 114) / 31),
+    dia = ((i + m - 7 * n + 114) % 31) + 1;
+  return new Date(a, mes - 1, dia, 12);             // meio-dia: evita erro de fuso ao gravar a data
+}
+function feriadosDoAno_(a) {
+  const p = pascoa_(a), mais = n => { const d = new Date(p); d.setDate(d.getDate() + n); return d; };
+  const fx = (m, d) => new Date(a, m - 1, d, 12);
+  return [
+    [fx(1, 1), 'Confraternização Universal', 'Nacional', 'SIM'],
+    [mais(-48), 'Carnaval (segunda)', 'Ponto facultativo', 'NÃO'],
+    [mais(-47), 'Carnaval (terça)', 'Ponto facultativo', 'NÃO'],
+    [mais(-46), 'Quarta-feira de Cinzas', 'Ponto facultativo', 'NÃO'],
+    [mais(-2), 'Sexta-feira Santa', 'Nacional', 'SIM'],
+    [fx(4, 21), 'Tiradentes', 'Nacional', 'SIM'],
+    [fx(4, 22), 'Aniversário de Itanhaém', 'Municipal (Itanhaém)', 'SIM'],
+    [fx(5, 1), 'Dia do Trabalho', 'Nacional', 'SIM'],
+    [mais(60), 'Corpus Christi', 'Ponto facultativo', 'NÃO'],
+    [fx(7, 9), 'Revolução Constitucionalista', 'Estadual (SP)', 'SIM'],
+    [fx(9, 7), 'Independência do Brasil', 'Nacional', 'SIM'],
+    [fx(10, 12), 'Nossa Senhora Aparecida', 'Nacional', 'SIM'],
+    [fx(11, 2), 'Finados', 'Nacional', 'SIM'],
+    [fx(11, 15), 'Proclamação da República', 'Nacional', 'SIM'],
+    [fx(11, 20), 'Dia da Consciência Negra', 'Nacional', 'SIM'],
+    [fx(12, 24), 'Véspera de Natal', 'Ponto facultativo', 'NÃO'],
+    [fx(12, 25), 'Natal', 'Nacional', 'SIM'],
+    [fx(12, 31), 'Véspera de Ano-Novo', 'Ponto facultativo', 'NÃO']
+  ];
+}
+/** Cria a aba "Feriados" com os feriados de 2026 a 2030 (nacionais, SP e Itanhaém) e os pontos facultativos
+ *  (Carnaval, Corpus Christi, vésperas) com Bloquear = NÃO. Se a aba já existir, só acrescenta datas que faltam.
+ *  Para fechar o Pede Aí num dia (ex.: emenda, carnaval), escreva SIM em Bloquear ou acrescente uma linha. */
+function criarAbaFeriados() {
+  const ss = planilha_();
+  let sh = ss.getSheetByName(ABA_FERIADOS);
+  if (!sh) {
+    sh = ss.insertSheet(ABA_FERIADOS);
+    sh.getRange(1, 1, 1, 4).setValues([['Data', 'Feriado', 'Tipo', 'Bloquear']]).setFontWeight('bold').setBackground('#2f3b4c').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+  }
+  const ja = new Set(sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(([d]) => d instanceof Date ? hojeISO_(d) : String(d)) : []);
+  let novos = [];
+  for (let a = 2026; a <= 2030; a++) novos = novos.concat(feriadosDoAno_(a).filter(l => !ja.has(hojeISO_(l[0]))));
+  if (novos.length) sh.getRange(sh.getLastRow() + 1, 1, novos.length, 4).setValues(novos);
+  const n = sh.getLastRow() - 1;
+  sh.getRange(2, 1, n, 4).sort(1);
+  sh.getRange(2, 1, n, 1).setNumberFormat('dd/mm/yyyy (ddd)');
+  sh.getRange(2, 4, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['SIM', 'NÃO'], true).build());
+  sh.autoResizeColumns(1, 4);
+  CacheService.getScriptCache().remove('feriados_v1');
+  Logger.log('Aba Feriados: ' + novos.length + ' datas novas (total ' + n + ').');
 }
 
 /** Cria a coluna "Fora do horário" na aba Funcionarios (se não existir) e marca SIM no Teste.
