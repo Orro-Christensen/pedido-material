@@ -24,7 +24,7 @@
     // Sem cabeçalho Content-Type: o navegador envia text/plain e o Apps Script aceita sem bloqueio de CORS.
     const r = await comTempo(fetch(window.API_URL, { method: 'POST', body: JSON.stringify(body) }), 30000);
     const j = await r.json();
-    if (j.erro) { const e = new Error(j.erro); e.senha = !!j.senha; throw e; }
+    if (j.erro) { const e = new Error(j.erro); e.senha = !!j.senha; e.fechado = !!j.fechado; throw e; }
     return j;
   }
 

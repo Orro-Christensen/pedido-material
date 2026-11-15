@@ -350,7 +350,7 @@ function lerNumero_(x) {                       // aceita 12,50 ou 12.50; vazio =
 function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
-    if (p.action === 'catalogo') return json_(catalogo_());
+    if (p.action === 'catalogo') return json_(Object.assign(catalogo_(), { horario: { dias: HORARIO.dias, faixas: HORARIO.faixas, texto: HORARIO.texto, livres: LIVRE_HORARIO, aberto: dentroHorario_() } }));
     if (p.action === 'pedidos') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
       garantirColunas_();
@@ -395,8 +395,36 @@ function doPost(e) {
   } catch (err) {
     const m = String(err.message || err);
     if (m.indexOf('SENHA|') === 0) return json_({ erro: m.slice(6), senha: true });
+    if (m.indexOf('FECHADO|') === 0) return json_({ erro: m.slice(8), fechado: true });
     return json_({ erro: m });
   } finally { lock.releaseLock(); }
+}
+
+// ---------- Horário do Pede Aí (pedido de material só durante o expediente) ----------
+// Segunda a sexta, das 8h às 12h e das 13h às 17h30 (fechado no almoço). Horário de Brasília.
+// Quem está em LIVRE_HORARIO pode usar a qualquer hora (usuário de teste).
+const HORARIO = { dias: [1, 2, 3, 4, 5], faixas: [['08:00', '12:00'], ['13:00', '17:30']],
+  texto: 'Pedidos de material: segunda a sexta, das 8h às 12h e das 13h às 17h30.' };
+const LIVRE_HORARIO = ['Teste'];
+function dentroHorario_(d) {
+  d = d || new Date();
+  const dia = Number(Utilities.formatDate(d, TZ_, 'u'));          // 1 = segunda ... 7 = domingo
+  const hm = Utilities.formatDate(d, TZ_, 'HH:mm');
+  return HORARIO.dias.includes(dia) && HORARIO.faixas.some(([a, b]) => hm >= a && hm < b);
+}
+function exigirHorario_(nome) {
+  if (LIVRE_HORARIO.includes(String(nome || '')) || dentroHorario_()) return;
+  throw new Error('FECHADO|O Pede Aí está fechado agora. ' + HORARIO.texto);
+}
+
+/** Cria o funcionário "Teste" (ativo) na aba Funcionarios, se ainda não existir.
+ *  A senha você digita direto na coluna Senha da planilha. Não mexe em mais ninguém. */
+function criarUsuarioTeste() {
+  const sh = planilha_().getSheetByName(ABA.FUNC);
+  if (tabela_(ABA.FUNC).some(f => String(f['Nome']).trim() === 'Teste')) { Logger.log('Teste já existe.'); return; }
+  const cab = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  sh.appendRow(cab.map(c => c === 'Nome' ? 'Teste' : c === 'Ativo' ? 'SIM' : ''));
+  Logger.log('Funcionário Teste criado na linha ' + sh.getLastRow() + '. Digite a senha na coluna Senha.');
 }
 
 // ---------- Senha de 4 números por funcionário (coluna "Senha" da aba Funcionarios) ----------
@@ -405,6 +433,7 @@ function senhaOk_(nome, senha) {
   nome = String(nome || '');
   const f = tabela_(ABA.FUNC).find(x => String(x['Nome']) === nome && ativo_(x['Ativo']));
   if (!f) throw erroSenha_('Funcionário não cadastrado');
+  exigirHorario_(nome);
   const cache = CacheService.getScriptCache(), k = 'tent_' + nome;
   const tent = Number(cache.get(k) || 0);
   if (tent >= 5) throw erroSenha_('Muitas tentativas erradas. Aguarde 15 minutos ou fale com o responsável.');
