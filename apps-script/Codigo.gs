@@ -350,7 +350,7 @@ function lerNumero_(x) {                       // aceita 12,50 ou 12.50; vazio =
 function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
-    if (p.action === 'catalogo') return json_(Object.assign(catalogo_(), { horario: { dias: HORARIO.dias, faixas: HORARIO.faixas, texto: HORARIO.texto, livres: LIVRE_HORARIO, aberto: dentroHorario_() } }));
+    if (p.action === 'catalogo') return json_(Object.assign(catalogo_(), { horario: { dias: HORARIO.dias, faixas: HORARIO.faixas, texto: HORARIO.texto, livres: livresHorario_(), aberto: dentroHorario_() } }));
     if (p.action === 'pedidos') {
       if (!pinOk_(p.pin)) return json_({ erro: 'PIN inválido' });
       garantirColunas_();
@@ -402,10 +402,14 @@ function doPost(e) {
 
 // ---------- Horário do Pede Aí (pedido de material só durante o expediente) ----------
 // Segunda a sexta, das 8h às 12h e das 13h às 17h30 (fechado no almoço). Horário de Brasília.
-// Quem está em LIVRE_HORARIO pode usar a qualquer hora (usuário de teste).
+// Exceções: quem tem SIM na coluna "Fora do horário" da aba Funcionarios pode pedir a qualquer hora.
 const HORARIO = { dias: [1, 2, 3, 4, 5], faixas: [['08:00', '12:00'], ['13:00', '17:30']],
   texto: 'Pedidos de material: segunda a sexta, das 8h às 12h e das 13h às 17h30.' };
-const LIVRE_HORARIO = ['Teste'];
+const COL_FORA_HORARIO = 'Fora do horário';
+function livresHorario_() {
+  return tabela_(ABA.FUNC).filter(f => f['Nome'] && ativo_(f['Ativo']) && /^S(IM)?$/i.test(String(f[COL_FORA_HORARIO] ?? '').trim()))
+    .map(f => String(f['Nome']).trim());
+}
 function dentroHorario_(d) {
   d = d || new Date();
   const dia = Number(Utilities.formatDate(d, TZ_, 'u'));          // 1 = segunda ... 7 = domingo
@@ -413,8 +417,26 @@ function dentroHorario_(d) {
   return HORARIO.dias.includes(dia) && HORARIO.faixas.some(([a, b]) => hm >= a && hm < b);
 }
 function exigirHorario_(nome) {
-  if (LIVRE_HORARIO.includes(String(nome || '')) || dentroHorario_()) return;
+  if (dentroHorario_() || livresHorario_().includes(String(nome || '').trim())) return;
   throw new Error('FECHADO|O Pede Aí está fechado agora. ' + HORARIO.texto);
+}
+
+/** Cria a coluna "Fora do horário" na aba Funcionarios (se não existir) e marca SIM no Teste.
+ *  Depois é só escrever SIM (ou apagar) na planilha. Não mexe em nomes nem senhas. */
+function criarColunaForaHorario() {
+  const sh = planilha_().getSheetByName(ABA.FUNC);
+  const cab = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  let col = cab.indexOf(COL_FORA_HORARIO) + 1;
+  if (!col) {
+    col = cab.length + 1;
+    sh.getRange(1, col).setValue(COL_FORA_HORARIO).setFontWeight('bold');
+    sh.getRange(1, col).setNote('SIM = pode fazer pedido fora do horário (seg-sex 8h-12h e 13h-17h30). Vazio = só no horário.');
+  }
+  const regra = SpreadsheetApp.newDataValidation().requireValueInList(['SIM', 'NÃO'], true).setAllowInvalid(true).build();
+  if (sh.getMaxRows() > 1) sh.getRange(2, col, sh.getMaxRows() - 1, 1).setDataValidation(regra);
+  const iNome = cab.indexOf('Nome');
+  sh.getDataRange().getValues().forEach((l, i) => { if (i > 0 && String(l[iNome]).trim() === 'Teste') sh.getRange(i + 1, col).setValue('SIM'); });
+  Logger.log('Coluna "' + COL_FORA_HORARIO + '" pronta (coluna ' + col + '). Exceções agora: ' + (livresHorario_().join(', ') || 'ninguém'));
 }
 
 /** Cria o funcionário "Teste" (ativo) na aba Funcionarios, se ainda não existir.
