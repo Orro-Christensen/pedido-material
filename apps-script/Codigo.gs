@@ -544,6 +544,29 @@ function criarUsuarioTeste() {
 }
 
 // ---------- Senha de 4 números por funcionário (coluna "Senha" da aba Funcionarios) ----------
+// A coluna Senha guarda só um código (h:…) criado pelo app Documentos com uma chave secreta.
+// A chave fica num arquivo do Drive (pasta privada do Documentos) e é copiada uma vez para as Propriedades deste script.
+// 4 números digitados direto na coluna continuam valendo como senha provisória.
+const ARQ_CHAVE_SENHAS = 'Documentos O&C - chave de senhas (não apagar)';
+function chaveSenhas_() {
+  const p = PropertiesService.getScriptProperties();
+  let k = p.getProperty('CHAVE_SENHAS');
+  if (k) return k;
+  const it = DriveApp.getFilesByName(ARQ_CHAVE_SENHAS);
+  if (!it.hasNext()) throw new Error('Chave de senhas não encontrada. Rode "protegerSenhas" no script do Documentos.');
+  k = it.next().getBlob().getDataAsString().trim();
+  p.setProperty('CHAVE_SENHAS', k);
+  return k;
+}
+function hashPin_(nome, pin) {
+  return 'h:' + Utilities.base64Encode(Utilities.computeHmacSha256Signature('O&C|' + String(nome).trim() + '|' + String(pin).trim(), chaveSenhas_()));
+}
+/** Rodar uma vez depois de "protegerSenhas" do Documentos: lê a chave do Drive (pede autorização). */
+function lerChaveSenhas() {
+  PropertiesService.getScriptProperties().deleteProperty('CHAVE_SENHAS');
+  chaveSenhas_();
+  Logger.log('Chave de senhas carregada. O Pede Aí já confere as senhas protegidas.');
+}
 const erroSenha_ = msg => new Error('SENHA|' + msg);
 function senhaOk_(nome, senha) {
   nome = String(nome || '');
@@ -553,10 +576,11 @@ function senhaOk_(nome, senha) {
   const cache = CacheService.getScriptCache(), k = 'tent_' + nome;
   const tent = Number(cache.get(k) || 0);
   if (tent >= 5) throw erroSenha_('Muitas tentativas erradas. Aguarde 15 minutos ou fale com o responsável.');
-  let certa = String(f['Senha'] ?? '').trim();
-  if (/^\d{1,4}$/.test(certa)) certa = certa.padStart(4, '0');
-  if (!certa) throw erroSenha_('Você ainda não tem senha. Fale com o responsável.');
-  if (String(senha || '').trim() !== certa) {
+  const guardada = String(f['Senha'] ?? '').trim(), digitada = String(senha || '').trim();
+  if (!guardada) throw erroSenha_('Você ainda não tem senha. Fale com o responsável.');
+  const confere = /^h:/.test(guardada) ? hashPin_(nome, digitada) === guardada
+    : /^\d{1,4}$/.test(guardada) && digitada === guardada.padStart(4, '0');
+  if (!confere) {
     cache.put(k, String(tent + 1), 900);
     throw erroSenha_(tent + 1 >= 5 ? 'Senha incorreta. Acesso bloqueado por 15 minutos.' : 'Senha incorreta');
   }
